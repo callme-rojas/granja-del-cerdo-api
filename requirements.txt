@@ -8,4 +8,7 @@ python-dotenv
 psycopg[binary]
 structlog
 pydantic-settings
-
+passlib[bcrypt]
+PyJWT
+pydantic-settings
+prisma
