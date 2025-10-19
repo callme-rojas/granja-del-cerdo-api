@@ -2,12 +2,11 @@ services:
   - type: web
     name: granja-del-cerdo-api
     env: python
-    rootDir: api
-    buildCommand: "pip install -r requirements.txt && python -m prisma generate"
-    startCommand: "python app.py"
     plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python app.py"
     envVars:
       - key: DATABASE_URL
         value: postgresql://granjadelcerdo_pdb_user:Kuef1xTZUY9SxoggqmFxPDXo2LLkteWF@dpg-d3pa6q1r0fns73afp7h0-a.oregon-postgres.render.com/granjadelcerdo_pdb
       - key: JWT_SECRET
-        value: "mysecret123"
+        value: "cambia_estosecreto"
