@@ -3,7 +3,7 @@ services:
     name: granja-del-cerdo-api
     env: python
     rootDir: api
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "pip install -r requirements.txt && prisma generate"
     startCommand: "python app.py"
     plan: free
     envVars:
