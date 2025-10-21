@@ -21,28 +21,33 @@ def make_token(sub: str, uid: int, role_id: int):
 
 # Endpoint: /api/v1/login
 @bp.post("/login")
-async def login():
-    data = request.get_json() or {}
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
+def login():
+    import asyncio
+    
+    async def _login():
+        data = request.get_json() or {}
+        email = (data.get("email") or "").strip().lower()
+        password = data.get("password") or ""
 
-    if not email or not password:
-        return jsonify(error="email_and_password_required"), 400
+        if not email or not password:
+            return jsonify(error="email_and_password_required"), 400
 
-    # Buscar usuario con Prisma
-    user = await get_user_by_email(email)
-    if not user or not verify_password(password, user.password_hash):
-        return jsonify(error="invalid_credentials"), 401
+        # Buscar usuario con Prisma
+        user = await get_user_by_email(email)
+        if not user or not verify_password(password, user.password_hash):
+            return jsonify(error="invalid_credentials"), 401
 
-    # Generar token JWT
-    token = make_token(user.email, user.id_usuario, user.id_rol or 0)
+        # Generar token JWT
+        token = make_token(user.email, user.id_usuario, user.id_rol or 0)
 
-    return jsonify(
-        access_token=token,
-        user={
-            "id": user.id_usuario,
-            "email": user.email,
-            "name": user.nombre_completo,
-            "role": user.id_rol,
-        },
-    )
+        return jsonify(
+            access_token=token,
+            user={
+                "id": user.id_usuario,
+                "email": user.email,
+                "name": user.nombre_completo,
+                "role": user.id_rol,
+            },
+        )
+    
+    return asyncio.run(_login())

@@ -2,6 +2,7 @@ Flask>=2.3
 flask-cors
 flask-limiter
 flask-pydantic
+flask[async]
 pydantic
 PyJWT
 python-dotenv

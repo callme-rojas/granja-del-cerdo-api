@@ -2,6 +2,7 @@ import os
 import subprocess
 from prisma import Prisma
 
+
 # 🚀 Verificar que el cliente Prisma existe; si no, generarlo automáticamente
 try:
     client_dir = os.path.join(os.getcwd(), ".prisma")

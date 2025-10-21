@@ -4,6 +4,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from routes.v1.auth import bp as auth_bp
 from routes.v1.predict import bp as predict_bp
+from routes.v1.lotes import bp as lotes_bp
 from config import settings
 
 # 🔹 Crear la instancia del limiter fuera de la función
@@ -30,7 +31,7 @@ def create_app():
     # Rutas
     app.register_blueprint(auth_bp, url_prefix="/api/v1")
     app.register_blueprint(predict_bp, url_prefix="/api/v1")
-
+    app.register_blueprint(lotes_bp, url_prefix="/api/v1")
     @app.get("/")
     def home():
         return jsonify(
