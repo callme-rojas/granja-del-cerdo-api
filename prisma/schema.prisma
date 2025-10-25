@@ -41,7 +41,12 @@ model Lote {
 model TipoCosto {
   id_tipo_costo  Int     @id @default(autoincrement())
   nombre_tipo    String
+  categoria      CategoriaCosto @default(VARIABLE)
   costos         Costo[]
+}
+enum CategoriaCosto {
+  FIJO
+  VARIABLE
 }
 
 model Costo {
