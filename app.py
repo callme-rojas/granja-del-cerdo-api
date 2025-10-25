@@ -8,6 +8,8 @@ from routes.v1.lotes import bp as lotes_bp
 from routes.v1.costos import bp as costos_bp
 from routes.v1.tipos_costo import bp as tipos_costo_bp
 from routes.v1.analytics import bp as analytics_bp
+from routes.v1.produccion import bp as produccion_bp
+from routes.v1.prediccion import bp as prediccion_bp
 from routes.features import bp as features_bp
 from config import settings
 
@@ -40,6 +42,8 @@ def create_app():
     app.register_blueprint(tipos_costo_bp, url_prefix="/api/v1")
     app.register_blueprint(analytics_bp, url_prefix="/api/v1")
     app.register_blueprint(features_bp, url_prefix="/api/v1")
+    app.register_blueprint(produccion_bp, url_prefix="/api/v1")
+    app.register_blueprint(prediccion_bp, url_prefix="/api/v1")
 
     @app.get("/")
     def home():
@@ -48,10 +52,12 @@ def create_app():
             endpoints=[
                 "/api/v1/login", 
                 "/api/v1/predict", 
+                "/api/v1/lotes/predict (nuevo ML)",
                 "/api/v1/lotes",
                 "/api/v1/tipos-costo",
                 "/api/v1/lotes/{id}/costos",
                 "/api/v1/lotes/{id}/costos/aggregates",
+                "/api/v1/lotes/{id}/produccion",
                 "/api/v1/lotes/{id}/features",
                 "/health"
             ]
