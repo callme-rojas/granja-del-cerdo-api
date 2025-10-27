@@ -98,11 +98,11 @@ def predict_lote(body: PredictBody):
         produccion = await db.produccion.find_unique(where={"id_lote": body.id_lote})
 
         fijo_por_kg = 0.0
-        kilos_vendidos = None
+        peso_salida_total = None
         if produccion and produccion.peso_salida_total:
-            kilos_vendidos = float(produccion.peso_salida_total)
-            if kilos_vendidos > 0:
-                fijo_por_kg = costo_fijo_total / kilos_vendidos
+            peso_salida_total = float(produccion.peso_salida_total)
+            if peso_salida_total > 0:
+                fijo_por_kg = costo_fijo_total / peso_salida_total
 
         # 6️⃣ Calcular precio final con margen
         margen_rate = float(settings.DEFAULT_MARGIN_RATE)

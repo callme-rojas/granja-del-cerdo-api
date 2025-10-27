@@ -12,13 +12,12 @@ bp = Blueprint("produccion_v1", __name__)
 # 📦 MODELOS
 # ---------------------------------------------------
 class ProduccionCreate(BaseModel):
-    fecha_corte: str = Field(..., description="Fecha del fin del ciclo (ISO 8601)")
-    kilos_vendidos: float = Field(gt=0, description="Cantidad total de kilos vendidos")
-    precio_venta_kg: float = Field(gt=0, description="Precio promedio de venta por kilo")
+    peso_salida_total: float = Field(gt=0, description="Cantidad total de kilos vendidos")
+    mortalidad_unidades: int | None = Field(default=None, ge=0, description="Unidades de cerdos muertos")
 
 class ProduccionUpdate(BaseModel):
-    kilos_vendidos: float | None = Field(default=None, gt=0)
-    precio_venta_kg: float | None = Field(default=None, gt=0)
+    peso_salida_total: float | None = Field(default=None, gt=0)
+    mortalidad_unidades: int | None = Field(default=None, ge=0)
 
 # ---------------------------------------------------
 # 🔹 Helper para parsear fechas ISO
@@ -42,9 +41,8 @@ def crear_produccion(id_lote: int, body: ProduccionCreate):
     Solo puede haber una producción por lote.
     
     Body:
-    - fecha_corte: Fecha del fin del ciclo (ISO 8601)
-    - kilos_vendidos: Cantidad total de kilos vendidos
-    - precio_venta_kg: Precio promedio de venta por kilo
+    - peso_salida_total: Cantidad total de kilos vendidos
+    - mortalidad_unidades: Número de cerdos muertos (opcional)
     """
     async def _crear():
         await db.connect()
@@ -58,14 +56,11 @@ def crear_produccion(id_lote: int, body: ProduccionCreate):
             await db.disconnect()
             return None, "produccion_exists"
 
-        fecha = parse_iso_date(body.fecha_corte)
-
         prod = await db.produccion.create(
             data={
                 "id_lote": id_lote,
-                "fecha_corte": fecha,
-                "kilos_vendidos": body.kilos_vendidos,
-                "precio_venta_kg": body.precio_venta_kg,
+                "peso_salida_total": body.peso_salida_total,
+                "mortalidad_unidades": body.mortalidad_unidades,
             }
         )
         await db.disconnect()
@@ -111,8 +106,8 @@ def update_produccion(id_lote: int, body: ProduccionUpdate):
     Actualiza el registro de producción de un lote.
     
     Body (opcional):
-    - kilos_vendidos: Cantidad total de kilos vendidos
-    - precio_venta_kg: Precio promedio de venta por kilo
+    - peso_salida_total: Cantidad total de kilos vendidos
+    - mortalidad_unidades: Número de cerdos muertos
     """
     async def _update():
         await db.connect()
@@ -122,10 +117,10 @@ def update_produccion(id_lote: int, body: ProduccionUpdate):
             return None, "not_found"
 
         data = {}
-        if body.kilos_vendidos is not None:
-            data["kilos_vendidos"] = body.kilos_vendidos
-        if body.precio_venta_kg is not None:
-            data["precio_venta_kg"] = body.precio_venta_kg
+        if body.peso_salida_total is not None:
+            data["peso_salida_total"] = body.peso_salida_total
+        if body.mortalidad_unidades is not None:
+            data["mortalidad_unidades"] = body.mortalidad_unidades
 
         if not data:
             await db.disconnect()
