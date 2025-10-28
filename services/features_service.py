@@ -1,146 +1,82 @@
 # api/services/features_service.py
 from __future__ import annotations
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 from db import db
 
-def _parse_iso_date(s: Optional[str]) -> Optional[datetime]:
-    if not s:
-        return None
-    s = s.strip().removesuffix("Z")
-    # "YYYY-MM-DD" primero
-    try:
-        return datetime.strptime(s, "%Y-%m-%d")
-    except Exception:
-        pass
-    # ISO completo
-    try:
-        return datetime.fromisoformat(s)
-    except Exception:
-        return None
+# Ajusta estos alias según tus nombres reales en TipoCosto.nombre_tipo
+ALIAS_ADQUISICION = {"adquisición", "adquisicion", "compra"}
+ALIAS_LOGISTICA   = {"logística", "logistica", "transporte", "flete", "peajes", "combustible"}
 
-async def _lote_exists(id_lote: int) -> bool:
-    return await db.lote.find_unique(where={"id_lote": id_lote}) is not None
+def _norm(s: Optional[str]) -> str:
+    return (s or "").strip().lower()
 
-async def _sum_costos_lote(
-    id_lote: int,
-    desde: Optional[str] = None,
-    hasta: Optional[str] = None,
-    with_detalle: bool = False,
-) -> Tuple[Dict[str, float], Optional[list[dict]]]:
-    """
-    Suma costos por categoría FIJO / VARIABLE (según TipoCosto.categoria).
-    Opcionalmente devuelve desglose por tipo.
-    """
-    if not await _lote_exists(id_lote):
-        raise ValueError("lote_not_found")
-
-    where = {"id_lote": id_lote}
-
-    d = _parse_iso_date(desde)
-    h = _parse_iso_date(hasta)
-    if d or h:
-        rango = {}
-        if d:
-            rango["gte"] = d
-        if h:
-            rango["lte"] = h
-        where["fecha_gasto"] = rango
-
+async def _sum_por_tipocosto(id_lote: int) -> Dict[str, float]:
     costos = await db.costo.find_many(
-        where=where,
+        where={"id_lote": id_lote},
         include={"tipo_costo": True},
-        order={"fecha_gasto": "asc"},
     )
-
-    totales = {"FIJO": 0.0, "VARIABLE": 0.0}
-    by_tipo = {}  # id_tipo_costo -> dict acumulado
-
+    totales: Dict[str, float] = {}
     for c in costos:
-        monto = float(c.monto or 0.0)
+        nombre = _norm(c.tipo_costo.nombre_tipo)
+        totales[nombre] = totales.get(nombre, 0.0) + float(c.monto or 0.0)
+    return totales
+
+async def _sum_por_categoria(id_lote: int) -> Dict[str, float]:
+    costos = await db.costo.find_many(
+        where={"id_lote": id_lote},
+        include={"tipo_costo": True},
+    )
+    tot = {"FIJO": 0.0, "VARIABLE": 0.0}
+    for c in costos:
         cat = (c.tipo_costo.categoria or "").upper()
-        if cat in totales:
-            totales[cat] += monto
+        if cat in tot:
+            tot[cat] += float(c.monto or 0.0)
+    return tot
 
-        if with_detalle:
-            key = c.id_tipo_costo
-            if key not in by_tipo:
-                by_tipo[key] = {
-                    "id_tipo_costo": c.id_tipo_costo,
-                    "nombre_tipo": c.tipo_costo.nombre_tipo,
-                    "categoria": cat,
-                    "total": 0.0,
-                }
-            by_tipo[key]["total"] += monto
-
-    detalle_list = None
-    if with_detalle:
-        detalle_list = list(by_tipo.values())
-        detalle_list.sort(key=lambda x: x["total"], reverse=True)
-        for dct in detalle_list:
-            dct["total"] = round(dct["total"], 4)
-
-    # redondeo final totales
-    totales = {k: round(v, 4) for k, v in totales.items()}
-    return totales, detalle_list
-
-async def build_features_para_modelo(
-    id_lote: int,
-    desde: Optional[str] = None,
-    hasta: Optional[str] = None,
-    with_detalle: bool = False,
-) -> Dict[str, Any]:
-    """
-    Construye el paquete de features alineado al análisis:
-    - Features (Nivel I–II): solo VARIABLES
-    - Extras (no-modelo): FIJOS (se suman luego en backend)
-    - Metadata de periodo y lote
-    """
+async def build_features_para_modelo(id_lote: int) -> Dict[str, Any]:
     lote = await db.lote.find_unique(where={"id_lote": id_lote})
     if lote is None:
         raise ValueError("lote_not_found")
 
-    totales, detalle = await _sum_costos_lote(
-        id_lote=id_lote,
-        desde=desde,
-        hasta=hasta,
-        with_detalle=with_detalle,
-    )
+    # Sumas por tipo (para obtener adquisición y logística)
+    sum_by_tipo = await _sum_por_tipocosto(id_lote)
 
-    costo_variable_total = float(totales.get("VARIABLE", 0.0))
-    costo_fijo_total = float(totales.get("FIJO", 0.0))
+    total_adquisicion = sum(sum_by_tipo.get(n, 0.0) for n in sum_by_tipo if _norm(n) in ALIAS_ADQUISICION)
+    total_logistica   = sum(sum_by_tipo.get(n, 0.0) for n in sum_by_tipo if _norm(n) in ALIAS_LOGISTICA)
 
-    # Señales básicas del lote
-    duracion = int(lote.duracion_ciclo_dias or 0)
+    # Sumas por categoría (para negocio)
+    by_cat = await _sum_por_categoria(id_lote)
+    costo_fijo_total     = float(by_cat.get("FIJO", 0.0))
+    costo_variable_total = float(by_cat.get("VARIABLE", 0.0))
+
+    # Pesos y mes
     mes_adq = int(lote.fecha_adquisicion.month)
+    kilos_entrada = float(lote.cantidad_animales) * float(lote.peso_promedio_entrada)
+
+    # Si existe producción, preferimos kilos reales de salida
+    produccion = await db.produccion.find_unique(where={"id_lote": id_lote})
+    kilos_salida = float(produccion.kilos_vendidos) if produccion else kilos_entrada
+
+    # precio_compra_kg = total de compra / kilos de entrada
+    precio_compra_kg = (total_adquisicion / kilos_entrada) if kilos_entrada > 0 else 0.0
 
     features = {
-        # Lote
-        "cantidad_animales": int(lote.cantidad_animales),
-        "peso_promedio_entrada": float(lote.peso_promedio_entrada),
-        "duracion_ciclo_dias": duracion,
+        "precio_compra_kg": float(precio_compra_kg),
+        "costo_logistica_total": float(total_logistica),
+        "peso_salida_total": float(kilos_salida),
         "mes_adquisicion": mes_adq,
-
-        # Costos de entrenamiento (Nivel I–II): agregamos VARIABLE
-        "costo_variable_total": float(costo_variable_total),
     }
 
-    bundle: Dict[str, Any] = {
+    return {
         "lote_id": id_lote,
-        "period": {"desde": desde, "hasta": hasta},
-        "features": features,
+        "features": features,  # SOLO lo que ve el modelo
         "extras": {
-            # No entra al modelo; backend lo suma al final por kg o por política
             "costo_fijo_total": float(costo_fijo_total),
-        },
-        "totals": {
-            "VARIABLE": round(costo_variable_total, 4),
-            "FIJO": round(costo_fijo_total, 4),
-            "TOTAL": round(costo_variable_total + costo_fijo_total, 4),
+            "costo_variable_total": float(costo_variable_total),
+            "kilos_entrada": float(kilos_entrada),
+            "kilos_salida": float(kilos_salida),
+            "total_adquisicion": float(total_adquisicion),
+            "total_logistica": float(total_logistica),
         },
     }
-
-    if with_detalle and detalle is not None:
-        bundle["by_tipo"] = detalle
-
-    return bundle
