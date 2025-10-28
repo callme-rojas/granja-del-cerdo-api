@@ -30,7 +30,8 @@ model Lote {
   fecha_adquisicion      DateTime
   cantidad_animales      Int
   peso_promedio_entrada  Float
-  duracion_ciclo_dias    Int?
+  duracion_estadia_dias  Int?      // Cambio: estadía en lugar de ciclo (reventa)
+  precio_compra_kg      Float?    // Nuevo: precio por kg comprado
   usuario_creador        Usuario?  @relation(fields: [id_usuario_creador], references: [id_usuario])
   id_usuario_creador     Int?
   costos                 Costo[]

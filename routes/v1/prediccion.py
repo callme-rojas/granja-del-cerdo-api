@@ -29,21 +29,24 @@ def predict_lote(body: PredictBody):
         f = bundle["features"]
         extras = bundle["extras"]
 
-        # Vector de entrada EXACTO (alineado a documento)
+        # Vector de entrada con 7 features (plan de reventa)
         X = [[
-            f["precio_compra_kg"],
-            f["costo_logistica_total"],
-            f["peso_salida_total"],
-            f["mes_adquisicion"],
+            f["cantidad_animales"],           # Nivel I
+            f["peso_promedio_entrada"],       # Nivel I
+            f["precio_compra_kg"],            # Nivel I
+            f["costo_logistica"],             # Nivel II
+            f["costo_alimentacion"],          # Nivel II
+            f["duracion_estadia_dias"],       # Nivel II
+            f["mes_adquisicion"],             # Nivel II
         ]]
 
         model = load_model()
         precio_base_kg = float(model.predict(X)[0])
 
         # Negocio: sumar fijos por kg + margen
-        kilos_salida = float(extras["peso_salida_total"]) if "peso_salida_total" in f else float(extras["kilos_salida"])
-        costo_fijo_total = float(extras["costo_fijo_total"])
-        costo_variable_total = float(extras["costo_variable_total"])
+        kilos_salida = float(extras.get("peso_salida_total", 0.0))  # Obtener desde extras
+        costo_fijo_total = float(extras.get("costo_fijo_total", 0.0))
+        costo_variable_total = float(extras.get("costo_variable_total", 0.0))
 
         fijo_por_kg = (costo_fijo_total / kilos_salida) if kilos_salida else 0.0
         margen_rate = float(settings.DEFAULT_MARGIN_RATE)

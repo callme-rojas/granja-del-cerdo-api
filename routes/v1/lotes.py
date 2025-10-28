@@ -14,7 +14,8 @@ class LoteCreate(BaseModel):
     fecha_adquisicion: str  # ISO string: "YYYY-MM-DD" o "YYYY-MM-DDTHH:MM:SS"
     cantidad_animales: int = Field(gt=0)
     peso_promedio_entrada: float = Field(gt=0)
-    duracion_ciclo_dias: int | None = Field(default=None, gt=0)
+    duracion_estadia_dias: int | None = Field(default=None, ge=0, le=7)  # Cambio: estadía (0-7 días)
+    precio_compra_kg: float | None = Field(default=None, gt=0)  # Nuevo: precio por kg
 
 @bp.post("/lotes")
 @require_jwt
@@ -47,7 +48,8 @@ def create_lote(body: LoteCreate):
                 "fecha_adquisicion": fecha,
                 "cantidad_animales": body.cantidad_animales,
                 "peso_promedio_entrada": body.peso_promedio_entrada,
-                "duracion_ciclo_dias": body.duracion_ciclo_dias,
+                "duracion_estadia_dias": body.duracion_estadia_dias,  # Cambio: estadía
+                "precio_compra_kg": body.precio_compra_kg,  # Nuevo: precio por kg
                 "id_usuario_creador": id_usuario,
             }
         )
@@ -76,7 +78,8 @@ class LoteUpdate(BaseModel):
     fecha_adquisicion: str | None = Field(default=None, description="Fecha de adquisición en formato ISO")
     cantidad_animales: int | None = Field(default=None, gt=0, description="Cantidad de animales")
     peso_promedio_entrada: float | None = Field(default=None, gt=0, description="Peso promedio de entrada")
-    duracion_ciclo_dias: int | None = Field(default=None, gt=0, description="Duración del ciclo en días")
+    duracion_estadia_dias: int | None = Field(default=None, ge=0, le=7, description="Duración de estadía en días (0-7)")
+    precio_compra_kg: float | None = Field(default=None, gt=0, description="Precio de compra por kg")
 
 @bp.patch("/lotes/<int:id_lote>")
 @require_jwt
@@ -113,8 +116,11 @@ def update_lote(id_lote: int, body: LoteUpdate):
         if body.peso_promedio_entrada is not None:
             update_data["peso_promedio_entrada"] = body.peso_promedio_entrada
         
-        if body.duracion_ciclo_dias is not None:
-            update_data["duracion_ciclo_dias"] = body.duracion_ciclo_dias
+        if body.duracion_estadia_dias is not None:
+            update_data["duracion_estadia_dias"] = body.duracion_estadia_dias
+        
+        if body.precio_compra_kg is not None:
+            update_data["precio_compra_kg"] = body.precio_compra_kg
         
         # Si no hay datos para actualizar
         if not update_data:
