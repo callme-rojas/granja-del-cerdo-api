@@ -13,3 +13,5 @@ passlib[bcrypt]
 PyJWT
 pydantic-settings
 prisma
+pandas  
+numpy
