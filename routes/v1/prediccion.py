@@ -11,12 +11,20 @@ bp = Blueprint("prediccion_v1", __name__)
 
 class PredictBody(BaseModel):
     id_lote: int = Field(gt=0)
+    margen_rate: float | None = Field(default=None, ge=0.0, le=1.0, description="Margen de ganancia (0.0-1.0). Si no se especifica, usa el margen por defecto.")
 
 def load_model():
     path = settings.MODEL_PATH
     if not os.path.exists(path):
         raise FileNotFoundError(f"Modelo no encontrado en: {path}")
-    return joblib.load(path)
+    model_data = joblib.load(path)
+    
+    # El modelo guardado es un diccionario con múltiples componentes
+    if isinstance(model_data, dict):
+        return model_data['model'], model_data['scaler']
+    else:
+        # Fallback para modelos simples
+        return model_data, None
 
 @bp.post("/lotes/predict")
 @require_jwt
@@ -29,19 +37,28 @@ def predict_lote(body: PredictBody):
         f = bundle["features"]
         extras = bundle["extras"]
 
-        # Vector de entrada con 7 features (plan de reventa)
+        # Vector de entrada con 9 features (alineado con entrenamiento)
         X = [[
             f["cantidad_animales"],           # Nivel I
             f["peso_promedio_entrada"],       # Nivel I
             f["precio_compra_kg"],            # Nivel I
-            f["costo_logistica"],             # Nivel II
-            f["costo_alimentacion"],          # Nivel II
+            f["costo_logistica_total"],       # Nivel II
+            f["costo_alimentacion_estadia"],  # Nivel II
             f["duracion_estadia_dias"],       # Nivel II
             f["mes_adquisicion"],             # Nivel II
+            f["costo_total_lote"],            # Feature engineering (CTL)
+            f["peso_salida"],                 # Feature adicional
         ]]
 
-        model = load_model()
-        precio_base_kg = float(model.predict(X)[0])
+        model, scaler = load_model()
+        
+        # Aplicar scaler si está disponible
+        if scaler is not None:
+            X_scaled = scaler.transform(X)
+        else:
+            X_scaled = X
+            
+        precio_base_kg = float(model.predict(X_scaled)[0])
 
         # Negocio: sumar fijos por kg + margen
         kilos_salida = float(extras.get("peso_salida_total", 0.0))  # Obtener desde extras
@@ -49,7 +66,9 @@ def predict_lote(body: PredictBody):
         costo_variable_total = float(extras.get("costo_variable_total", 0.0))
 
         fijo_por_kg = (costo_fijo_total / kilos_salida) if kilos_salida else 0.0
-        margen_rate = float(settings.DEFAULT_MARGIN_RATE)
+        
+        # Usar margen dinámico si se proporciona, sino usar el por defecto
+        margen_rate = float(body.margen_rate) if body.margen_rate is not None else float(settings.DEFAULT_MARGIN_RATE)
 
         subtotal = precio_base_kg + fijo_por_kg
         precio_sugerido_kg = subtotal * (1.0 + margen_rate)

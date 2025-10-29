@@ -73,20 +73,25 @@ async def build_features_para_modelo(id_lote: int) -> Dict[str, Any]:
     if precio_compra_kg == 0.0 and kilos_entrada > 0:
         precio_compra_kg = total_adquisicion / kilos_entrada
 
-    # Features para el modelo ML (7 features del plan de reventa)
+    # Calcular costo_total_lote (CTL) - feature engineering del diseño académico
+    costo_total_lote = total_adquisicion + total_logistica + total_alimentacion
+    
+    # Features para el modelo ML (9 features - alineado con entrenamiento)
     features = {
         "cantidad_animales": float(lote.cantidad_animales),           # Nivel I
         "peso_promedio_entrada": float(lote.peso_promedio_entrada),   # Nivel I
         "precio_compra_kg": float(precio_compra_kg),                  # Nivel I
-        "costo_logistica": float(total_logistica),                    # Nivel II
-        "costo_alimentacion": float(total_alimentacion),              # Nivel II
+        "costo_logistica_total": float(total_logistica),              # Nivel II (renombrado para consistencia)
+        "costo_alimentacion_estadia": float(total_alimentacion),       # Nivel II (renombrado para consistencia)
         "duracion_estadia_dias": float(dias_estadia),                 # Nivel II
         "mes_adquisicion": mes_adq,                                   # Nivel II
+        "costo_total_lote": float(costo_total_lote),                  # Feature engineering (CTL)
+        "peso_salida": float(kilos_salida),                          # Feature adicional
     }
 
     return {
         "lote_id": id_lote,
-        "features": features,  # 7 features para el modelo ML
+        "features": features,  # 9 features para el modelo ML
         "extras": {
             "costo_fijo_total": float(costo_fijo_total),
             "costo_variable_total": float(costo_variable_total),

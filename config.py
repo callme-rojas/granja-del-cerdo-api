@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     RATE_LIMIT: str = "100/minute"
     
     # Machine Learning
-    MODEL_PATH: str = "ml/model_store/latest.pkl"
+    # Ajustado a la nueva estructura: los modelos viven en ml/models/
+    MODEL_PATH: str = "ml/models/12_months_model.pkl"
     DEFAULT_MARGIN_RATE: float = 0.10  # 10% de margen por defecto
 
     class Config:
