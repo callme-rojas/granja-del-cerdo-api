@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Rol {
+  id_rol      Int       @id @default(autoincrement())
+  nombre_rol  String    @unique
+  usuarios    Usuario[]
+}
+
+model Usuario {
+  id_usuario       Int       @id @default(autoincrement())
+  nombre_completo  String
+  email            String    @unique
+  password_hash    String
+  fecha_registro   DateTime  @default(now())
+  rol              Rol?      @relation(fields: [id_rol], references: [id_rol])
+  id_rol           Int?
+  lotes            Lote[]
+  predicciones     Prediccion[]
+}
+
+model Lote {
+  id_lote                Int       @id @default(autoincrement())
+  fecha_adquisicion      DateTime
+  cantidad_animales      Int
+  peso_promedio_entrada  Float
+  duracion_estadia_dias  Int?      // Cambio: estadía en lugar de ciclo (reventa)
+  precio_compra_kg      Float?    // Nuevo: precio por kg comprado
+  usuario_creador        Usuario?  @relation(fields: [id_usuario_creador], references: [id_usuario])
+  id_usuario_creador     Int?
+  costos                 Costo[]
+  produccion             Produccion?
+  predicciones           Prediccion[]
+}
+
+model TipoCosto {
+  id_tipo_costo  Int     @id @default(autoincrement())
+  nombre_tipo    String
+  categoria      CategoriaCosto @default(VARIABLE)
+  costos         Costo[]
+}
+enum CategoriaCosto {
+  FIJO
+  VARIABLE
+}
+
+model Costo {
+  id_costo       Int       @id @default(autoincrement())
+  monto          Float
+  fecha_gasto    DateTime
+  descripcion    String?
+  tipo_costo     TipoCosto @relation(fields: [id_tipo_costo], references: [id_tipo_costo])
+  id_tipo_costo  Int
+  lote           Lote      @relation(fields: [id_lote], references: [id_lote])
+  id_lote        Int
+}
+
+model Produccion {
+  id_produccion        Int      @id @default(autoincrement())
+  peso_salida_total    Float
+  mortalidad_unidades  Int?
+  lote                 Lote     @relation(fields: [id_lote], references: [id_lote])
+  id_lote              Int      @unique
+}
+
+model Prediccion {
+  id_prediccion           Int      @id @default(autoincrement())
+  precio_sugerido_kg      Float
+  ganancia_neta_estimada  Float?
+  modelo_usado            String?
+  fecha_prediccion        DateTime @default(now())
+  usuario_realiza         Usuario? @relation(fields: [id_usuario_realiza], references: [id_usuario])
+  id_usuario_realiza      Int?
+  lote                    Lote?    @relation(fields: [id_lote], references: [id_lote])
+  id_lote                 Int?
+}

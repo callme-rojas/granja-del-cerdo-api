@@ -1,0 +1,31 @@
+{
+  "lote": {
+    "fecha_adquisicion": "2025-01-15",
+    "cantidad_animales": 30,
+    "peso_promedio_entrada": 98.5,
+    "precio_compra_kg": 18.8,
+    "duracion_estadia_dias": 2,
+    "costos": [
+      {
+        "tipo": "logistica",
+        "monto": 720.0
+      },
+      {
+        "tipo": "alimentacion",
+        "monto": 60.0
+      }
+    ]
+  },
+  "features": {
+    "cantidad_animales": 30,
+    "peso_promedio_entrada": 98.5,
+    "precio_compra_kg": 18.8,
+    "costo_logistica": 720.0,
+    "costo_alimentacion": 60.0,
+    "duracion_estadia_dias": 2,
+    "mes_adquisicion": 1,
+    "costo_total_lote": 56334.0,
+    "peso_salida": 2984.55
+  },
+  "timestamp": "2025-10-28T22:43:15.358678"
+}

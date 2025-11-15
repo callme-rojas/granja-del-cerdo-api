@@ -1,0 +1,154 @@
+[
+  {
+    "scenario": "Lote Peque\u00f1o",
+    "lote_id": 16,
+    "lote_data": {
+      "fecha_adquisicion": "2025-01-15",
+      "cantidad_animales": 20,
+      "peso_promedio_entrada": 95.0,
+      "precio_compra_kg": 18.5,
+      "duracion_estadia_dias": 1
+    },
+    "costos_data": [
+      {
+        "monto": 400.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Transporte peque\u00f1o",
+        "id_tipo_costo": 6
+      },
+      {
+        "monto": 30.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Alimentacion 1 dia",
+        "id_tipo_costo": 6
+      }
+    ],
+    "prediccion": {
+      "fijo_por_kg": 0.2263,
+      "ganancia_neta_estimada": 47798.76,
+      "lote_id": 16,
+      "margen_rate": 0.1,
+      "precio_base_kg": 22.8496,
+      "precio_sugerido_kg": 25.3836,
+      "prediccion_id": 2
+    },
+    "timestamp": "2025-10-28T23:51:18.683019"
+  },
+  {
+    "scenario": "Lote Grande",
+    "lote_id": 17,
+    "lote_data": {
+      "fecha_adquisicion": "2025-01-15",
+      "cantidad_animales": 100,
+      "peso_promedio_entrada": 105.0,
+      "precio_compra_kg": 19.2,
+      "duracion_estadia_dias": 3
+    },
+    "costos_data": [
+      {
+        "monto": 2000.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Transporte grande",
+        "id_tipo_costo": 6
+      },
+      {
+        "monto": 450.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Alimentacion 3 dias",
+        "id_tipo_costo": 6
+      },
+      {
+        "monto": 300.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Medicamentos",
+        "id_tipo_costo": 6
+      }
+    ],
+    "prediccion": {
+      "fijo_por_kg": 0.2619,
+      "ganancia_neta_estimada": 261515.69,
+      "lote_id": 17,
+      "margen_rate": 0.1,
+      "precio_base_kg": 22.6182,
+      "precio_sugerido_kg": 25.1682,
+      "prediccion_id": 3
+    },
+    "timestamp": "2025-10-28T23:51:39.892159"
+  },
+  {
+    "scenario": "Estad\u00eda Larga (7 d\u00edas)",
+    "lote_id": 18,
+    "lote_data": {
+      "fecha_adquisicion": "2025-01-15",
+      "cantidad_animales": 50,
+      "peso_promedio_entrada": 98.0,
+      "precio_compra_kg": 18.8,
+      "duracion_estadia_dias": 7
+    },
+    "costos_data": [
+      {
+        "monto": 1000.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Transporte",
+        "id_tipo_costo": 6
+      },
+      {
+        "monto": 525.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Alimentacion 7 dias",
+        "id_tipo_costo": 6
+      },
+      {
+        "monto": 200.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Veterinario",
+        "id_tipo_costo": 6
+      }
+    ],
+    "prediccion": {
+      "fijo_por_kg": 0.352,
+      "ganancia_neta_estimada": 123673.35,
+      "lote_id": 18,
+      "margen_rate": 0.1,
+      "precio_base_kg": 22.913,
+      "precio_sugerido_kg": 25.5915,
+      "prediccion_id": 4
+    },
+    "timestamp": "2025-10-28T23:52:01.373321"
+  },
+  {
+    "scenario": "Precio de Compra Alto",
+    "lote_id": 19,
+    "lote_data": {
+      "fecha_adquisicion": "2025-01-15",
+      "cantidad_animales": 40,
+      "peso_promedio_entrada": 110.0,
+      "precio_compra_kg": 22.0,
+      "duracion_estadia_dias": 2
+    },
+    "costos_data": [
+      {
+        "monto": 1200.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Transporte premium",
+        "id_tipo_costo": 6
+      },
+      {
+        "monto": 120.0,
+        "fecha_gasto": "2025-01-15",
+        "descripcion": "Alimentacion premium",
+        "id_tipo_costo": 6
+      }
+    ],
+    "prediccion": {
+      "fijo_por_kg": 0.3,
+      "ganancia_neta_estimada": 127307.81,
+      "lote_id": 19,
+      "margen_rate": 0.1,
+      "precio_base_kg": 26.276,
+      "precio_sugerido_kg": 29.2336,
+      "prediccion_id": 5
+    },
+    "timestamp": "2025-10-28T23:52:19.050838"
+  }
+]
