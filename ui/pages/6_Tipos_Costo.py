@@ -17,7 +17,7 @@ from utils.advanced_charts import (
     display_chart, CORPORATE_COLORS
 )
 from utils.professional_components import (
-    metric_card, alert_modern, empty_state_modern,
+    metric_card, modern_card, alert_modern, empty_state_modern,
     badge, stats_card_row
 )
 from utils.simple_sidebar import page_config, render_simple_sidebar
@@ -34,28 +34,40 @@ inject_reload_warning()
 user = get_current_user()
 render_simple_sidebar("6_Tipos_Costo.py", user)
 
-# CSS profesional
+# CSS profesional con tema oscuro
 st.markdown("""
 <style>
     .catalog-header {
-        background: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%);
-        color: white;
+        background: linear-gradient(135deg, rgba(255, 145, 164, 0.15) 0%, rgba(255, 127, 149, 0.15) 100%);
+        border: 1px solid rgba(255, 145, 164, 0.3);
+        color: #FFFFFF;
         padding: 2rem;
         border-radius: 16px;
         margin-bottom: 2rem;
-        box-shadow: 0 10px 25px rgba(6, 182, 212, 0.3);
+        box-shadow: 0 8px 30px rgba(255, 145, 164, 0.2);
+        backdrop-filter: blur(10px);
+    }
+    .catalog-header h1 {
+        background: linear-gradient(135deg, #FF91A4 0%, #FF7F95 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0 0 0.5rem 0;
+        font-size: 2.5rem;
+        font-weight: 700;
     }
     .section-title {
         font-size: 1.5rem;
         font-weight: 700;
-        color: #1F2937;
+        color: #FFFFFF;
         margin: 2rem 0 1rem 0;
         padding-bottom: 0.5rem;
-        border-bottom: 3px solid #06B6D4;
+        border-bottom: 2px solid rgba(255, 145, 164, 0.4);
     }
     .category-badge-fijo {
-        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-        color: white;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.2) 100%);
+        border: 1px solid rgba(59, 130, 246, 0.5);
+        color: #60A5FA;
         padding: 0.5rem 1rem;
         border-radius: 20px;
         font-weight: 600;
@@ -63,8 +75,9 @@ st.markdown("""
         margin: 0.25rem;
     }
     .category-badge-variable {
-        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-        color: white;
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.2) 100%);
+        border: 1px solid rgba(245, 158, 11, 0.5);
+        color: #FBBF24;
         padding: 0.5rem 1rem;
         border-radius: 20px;
         font-weight: 600;
@@ -195,9 +208,9 @@ with tab1:
                 st.markdown('<div class="section-title">Detalle del Catálogo</div>', unsafe_allow_html=True)
                 
                 if filtered_tipos:
-                    # Crear tabla con badges
+                    # Crear tabla con badges (tema oscuro)
                     st.markdown("""
-                    <div style="background: white; padding: 1.5rem; border-radius: 12px; border: 2px solid #E5E7EB;">
+                    <div style="background: rgba(26, 26, 46, 0.6); padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(255, 145, 164, 0.2);">
                     """, unsafe_allow_html=True)
                     
                     for tipo in filtered_tipos:
@@ -207,18 +220,18 @@ with tab1:
                         <div style="
                             padding: 1rem;
                             margin-bottom: 0.75rem;
-                            border: 2px solid #E5E7EB;
+                            border: 1px solid rgba(255, 145, 164, 0.2);
                             border-radius: 10px;
-                            background: #F9FAFB;
+                            background: rgba(26, 26, 46, 0.4);
                             transition: all 0.3s ease;
-                        " onmouseover="this.style.borderColor='#3B82F6'; this.style.background='white';"
-                           onmouseout="this.style.borderColor='#E5E7EB'; this.style.background='#F9FAFB';">
+                        " onmouseover="this.style.borderColor='rgba(255, 145, 164, 0.5)'; this.style.background='rgba(26, 26, 46, 0.7)';"
+                           onmouseout="this.style.borderColor='rgba(255, 145, 164, 0.2)'; this.style.background='rgba(26, 26, 46, 0.4)';">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <div style="font-weight: 600; font-size: 1.125rem; color: #1F2937; margin-bottom: 0.25rem;">
+                                    <div style="font-weight: 600; font-size: 1.125rem; color: #FFFFFF; margin-bottom: 0.25rem;">
                                         {tipo.get('nombre_tipo', 'Sin nombre')}
                                     </div>
-                                    <div style="font-size: 0.875rem; color: #6B7280;">
+                                    <div style="font-size: 0.875rem; color: #9A9AAA;">
                                         Número: {tipo.get('id_tipo_costo', 'N/A')}
                                     </div>
                                 </div>
@@ -241,13 +254,13 @@ with tab1:
                 with col_info1:
                     st.markdown("""
                     <div style="
-                        background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+                        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
                         padding: 1.5rem;
                         border-radius: 12px;
-                        border: 2px solid #BFDBFE;
+                        border: 1px solid rgba(59, 130, 246, 0.3);
                     ">
-                        <h3 style="color: #1E40AF; margin-top: 0;">Costos FIJOS</h3>
-                        <ul style="color: #1F2937; line-height: 1.8;">
+                        <h3 style="color: #60A5FA; margin-top: 0;">Costos FIJOS</h3>
+                        <ul style="color: #E5E7EB; line-height: 1.8;">
                             <li><strong>Definición:</strong> No varían con la cantidad</li>
                             <li><strong>Ejemplos:</strong> Alquiler, servicios, mantenimiento</li>
                             <li><strong>Cálculo:</strong> Se distribuyen entre todos los kg</li>
@@ -258,13 +271,13 @@ with tab1:
                 with col_info2:
                     st.markdown("""
                     <div style="
-                        background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+                        background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
                         padding: 1.5rem;
                         border-radius: 12px;
-                        border: 2px solid #FDE68A;
+                        border: 1px solid rgba(245, 158, 11, 0.3);
                     ">
-                        <h3 style="color: #92400E; margin-top: 0;">Costos VARIABLES</h3>
-                        <ul style="color: #1F2937; line-height: 1.8;">
+                        <h3 style="color: #FBBF24; margin-top: 0;">Costos VARIABLES</h3>
+                        <ul style="color: #E5E7EB; line-height: 1.8;">
                             <li><strong>Definición:</strong> Varían con la cantidad</li>
                             <li><strong>Ejemplos:</strong> Alimentación, transporte</li>
                             <li><strong>Cálculo:</strong> Por animal o por kg</li>
@@ -307,29 +320,16 @@ with tab2:
         with col2:
             st.markdown("#### 💡 Ejemplos")
             
-            st.markdown("""
-            <div style="
-                background: #F9FAFB;
-                padding: 1rem;
-                border-radius: 10px;
-                border: 2px solid #E5E7EB;
-                margin-top: 0.5rem;
-            ">
-                <strong style="color: #3B82F6;">FIJOS:</strong>
-                <ul style="margin: 0.5rem 0; padding-left: 1.5rem; color: #4B5563;">
-                    <li>Alquiler de corral</li>
-                    <li>Servicios básicos</li>
-                    <li>Mantenimiento</li>
-                </ul>
-                
-                <strong style="color: #F59E0B; margin-top: 0.5rem; display: block;">VARIABLES:</strong>
-                <ul style="margin: 0.5rem 0; padding-left: 1.5rem; color: #4B5563;">
-                    <li>Alimentación</li>
-                    <li>Transporte</li>
-                    <li>Medicamentos</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
+            # Ejemplos usando solo componentes nativos de Streamlit
+            st.markdown("**FIJOS:**")
+            st.markdown("- Alquiler de corral")
+            st.markdown("- Servicios básicos")
+            st.markdown("- Mantenimiento")
+            
+            st.markdown("**VARIABLES:**")
+            st.markdown("- Alimentación")
+            st.markdown("- Transporte")
+            st.markdown("- Medicamentos")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -373,45 +373,43 @@ with tab2:
 st.markdown("---")
 st.markdown('<div class="section-title">Sistema de Reconocimiento Automático</div>', unsafe_allow_html=True)
 
+# Mostrar información de aliases con estilo, sin HTML crudo
 st.markdown("""
 <div style="
-    background: linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%);
+    background: linear-gradient(135deg, rgba(255, 145, 164, 0.1) 0%, rgba(255, 127, 149, 0.1) 100%);
+    border: 1px solid rgba(255, 145, 164, 0.3);
+    border-radius: 16px;
     padding: 1.5rem;
-    border-radius: 12px;
-    border: 2px solid #BBF7D0;
     margin-bottom: 2rem;
 ">
-    <h4 style="color: #065F46; margin-top: 0;">🤖 Aliases para Machine Learning</h4>
-    <p style="color: #1F2937; margin-bottom: 1rem;">
+    <h4 style="color: #FF91A4; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.5rem;">🤖</span>
+        <span>Aliases para Machine Learning</span>
+    </h4>
+    <p style="color: #E5E7EB; margin-bottom: 1rem;">
         El sistema reconoce automáticamente ciertos tipos de costo para el modelo ML:
     </p>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-        <div>
-            <strong style="color: #065F46;">Adquisición:</strong>
-            <ul style="color: #4B5563; font-size: 0.875rem;">
-                <li>adquisición</li>
-                <li>compra</li>
-                <li>precio_compra</li>
-            </ul>
-        </div>
-        <div>
-            <strong style="color: #065F46;">Logística:</strong>
-            <ul style="color: #4B5563; font-size: 0.875rem;">
-                <li>logística</li>
-                <li>transporte</li>
-                <li>flete</li>
-                <li>combustible</li>
-            </ul>
-        </div>
-        <div>
-            <strong style="color: #065F46;">Alimentación:</strong>
-            <ul style="color: #4B5563; font-size: 0.875rem;">
-                <li>alimentación</li>
-                <li>comida</li>
-                <li>pienso</li>
-            </ul>
-        </div>
-    </div>
 </div>
 """, unsafe_allow_html=True)
+
+# Contenido de aliases usando componentes nativos de Streamlit
+col_al1, col_al2, col_al3 = st.columns(3)
+
+with col_al1:
+    st.markdown("**Adquisición:**")
+    st.markdown("- adquisición")
+    st.markdown("- compra")
+    st.markdown("- precio_compra")
+
+with col_al2:
+    st.markdown("**Logística:**")
+    st.markdown("- logística")
+    st.markdown("- transporte")
+    st.markdown("- flete")
+    st.markdown("- combustible")
+
+with col_al3:
+    st.markdown("**Alimentación:**")
+    st.markdown("- alimentación")
+    st.markdown("- comida")
+    st.markdown("- pienso")

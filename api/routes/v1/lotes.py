@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_pydantic import validate
 from pydantic import BaseModel, Field
 from utils.auth_guard import require_jwt
-from db import db
+from db import db, connect_db, disconnect_db
 import re
 import asyncio
 from datetime import datetime
@@ -42,19 +42,21 @@ def create_lote(body: LoteCreate):
                 print(f"⚠️ Error al convertir fecha: {e}")
                 return None, "invalid_fecha_adquisicion_format"
 
-        await db.connect()
-        lote = await db.lote.create(
-            data={
-                "fecha_adquisicion": fecha,
-                "cantidad_animales": body.cantidad_animales,
-                "peso_promedio_entrada": body.peso_promedio_entrada,
-                "duracion_estadia_dias": body.duracion_estadia_dias,  
-                "precio_compra_kg": body.precio_compra_kg,
-                "id_usuario_creador": id_usuario,
-            }
-        )
-        await db.disconnect()
-        return lote.dict(), None
+        await connect_db()
+        try:
+            lote = await db.lote.create(
+                data={
+                    "fecha_adquisicion": fecha,
+                    "cantidad_animales": body.cantidad_animales,
+                    "peso_promedio_entrada": body.peso_promedio_entrada,
+                    "duracion_estadia_dias": body.duracion_estadia_dias,  
+                    "precio_compra_kg": body.precio_compra_kg,
+                    "id_usuario_creador": id_usuario,
+                }
+            )
+            return lote.dict(), None
+        finally:
+            await disconnect_db()
     
     lote_data, error = asyncio.run(_create_lote())
     if error:
@@ -65,10 +67,12 @@ def create_lote(body: LoteCreate):
 @require_jwt
 def get_lotes():
     async def _get_lotes():
-        await db.connect()
-        lotes = await db.lote.find_many(order={"id_lote": "desc"})
-        await db.disconnect()
-        return [lote.dict() for lote in lotes]
+        await connect_db()
+        try:
+            lotes = await db.lote.find_many(order={"id_lote": "desc"})
+            return [lote.dict() for lote in lotes]
+        finally:
+            await disconnect_db()
     
     lotes = asyncio.run(_get_lotes())
     return jsonify(lotes), 200
@@ -126,10 +130,12 @@ def update_lote(id_lote: int, body: LoteUpdate):
         if not update_data:
             return None, "no_fields_to_update"
         
-        await db.connect()
-        lote = await db.lote.update(where={"id_lote": id_lote}, data=update_data)
-        await db.disconnect()
-        return lote.dict(), None
+        await connect_db()
+        try:
+            lote = await db.lote.update(where={"id_lote": id_lote}, data=update_data)
+            return lote.dict(), None
+        finally:
+            await disconnect_db()
     
     lote_data, error = asyncio.run(_update_lote())
     if error:
@@ -146,10 +152,12 @@ def update_lote(id_lote: int, body: LoteUpdate):
 @require_jwt
 def delete_lote(id_lote: int):
     async def _delete_lote():
-        await db.connect()
-        await db.lote.delete(where={"id_lote": id_lote})
-        await db.disconnect()
-        return {"message": f"Lote {id_lote} eliminado"}
+        await connect_db()
+        try:
+            await db.lote.delete(where={"id_lote": id_lote})
+            return {"message": f"Lote {id_lote} eliminado"}
+        finally:
+            await disconnect_db()
     
     result = asyncio.run(_delete_lote())
     return jsonify(result)

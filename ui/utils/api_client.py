@@ -37,20 +37,45 @@ class APIClient:
     def _handle_response(self, response: requests.Response) -> Dict[str, Any]:
         """Maneja la respuesta de la API"""
         try:
-            if response.status_code in [200, 201]:
-                return {"success": True, "data": response.json()}
-            else:
-                error_data = response.json() if response.content else {}
+            # Verificar si hay contenido antes de parsear JSON
+            content = response.content
+            if not content:
                 return {
                     "success": False,
-                    "error": error_data.get("error", "Error desconocido"),
+                    "error": "Respuesta vacía del servidor",
+                    "status_code": response.status_code
+                }
+            
+            if response.status_code in [200, 201]:
+                try:
+                    data = response.json()
+                    return {"success": True, "data": data}
+                except ValueError as e:
+                    # Si no es JSON válido, devolver error
+                    return {
+                        "success": False,
+                        "error": f"Error al procesar respuesta JSON: {str(e)}. Contenido: {content[:200]}",
+                        "status_code": response.status_code
+                    }
+            else:
+                # Para errores, intentar parsear JSON, pero manejar casos donde no sea JSON
+                try:
+                    error_data = response.json() if content else {}
+                    error_msg = error_data.get("error", f"Error HTTP {response.status_code}")
+                except ValueError:
+                    # Si no es JSON, usar el texto de la respuesta
+                    error_msg = content.decode('utf-8', errors='ignore')[:200] or f"Error HTTP {response.status_code}"
+                
+                return {
+                    "success": False,
+                    "error": error_msg,
                     "status_code": response.status_code
                 }
         except Exception as e:
             return {
                 "success": False,
                 "error": f"Error al procesar respuesta: {str(e)}",
-                "status_code": response.status_code
+                "status_code": getattr(response, 'status_code', 0)
             }
     
     # Authentication

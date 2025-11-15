@@ -12,9 +12,44 @@ ALIAS_ALIMENTACION = {"alimentación", "alimentacion", "comida", "pienso"}
 def _norm(s: Optional[str]) -> str:
     return (s or "").strip().lower()
 
-async def _sum_por_tipocosto(id_lote: int) -> Dict[str, float]:
+def _parse_iso_date(s: Optional[str]) -> Optional[datetime]:
+    """Parsea una fecha en formato ISO a datetime"""
+    if not s:
+        return None
+    try:
+        # Remover 'Z' si existe y parsear
+        s_clean = s.strip().removesuffix("Z")
+        return datetime.fromisoformat(s_clean)
+    except Exception:
+        try:
+            # Intentar parseo alternativo
+            return datetime.strptime(s.strip(), "%Y-%m-%d")
+        except Exception:
+            return None
+
+async def _sum_por_tipocosto(
+    id_lote: int, 
+    desde: Optional[str] = None, 
+    hasta: Optional[str] = None
+) -> Dict[str, float]:
+    # Construir filtro de fecha si se proporciona
+    where_clause: Dict[str, Any] = {"id_lote": id_lote}
+    
+    if desde or hasta:
+        fecha_filtros: Dict[str, Any] = {}
+        fecha_desde = _parse_iso_date(desde)
+        fecha_hasta = _parse_iso_date(hasta)
+        
+        if fecha_desde:
+            fecha_filtros["gte"] = fecha_desde
+        if fecha_hasta:
+            fecha_filtros["lte"] = fecha_hasta
+        
+        if fecha_filtros:
+            where_clause["fecha_gasto"] = fecha_filtros
+    
     costos = await db.costo.find_many(
-        where={"id_lote": id_lote},
+        where=where_clause,
         include={"tipo_costo": True},
     )
     totales: Dict[str, float] = {}
@@ -23,9 +58,29 @@ async def _sum_por_tipocosto(id_lote: int) -> Dict[str, float]:
         totales[nombre] = totales.get(nombre, 0.0) + float(c.monto or 0.0)
     return totales
 
-async def _sum_por_categoria(id_lote: int) -> Dict[str, float]:
+async def _sum_por_categoria(
+    id_lote: int,
+    desde: Optional[str] = None,
+    hasta: Optional[str] = None
+) -> Dict[str, float]:
+    # Construir filtro de fecha si se proporciona
+    where_clause: Dict[str, Any] = {"id_lote": id_lote}
+    
+    if desde or hasta:
+        fecha_filtros: Dict[str, Any] = {}
+        fecha_desde = _parse_iso_date(desde)
+        fecha_hasta = _parse_iso_date(hasta)
+        
+        if fecha_desde:
+            fecha_filtros["gte"] = fecha_desde
+        if fecha_hasta:
+            fecha_filtros["lte"] = fecha_hasta
+        
+        if fecha_filtros:
+            where_clause["fecha_gasto"] = fecha_filtros
+    
     costos = await db.costo.find_many(
-        where={"id_lote": id_lote},
+        where=where_clause,
         include={"tipo_costo": True},
     )
     tot = {"FIJO": 0.0, "VARIABLE": 0.0}
@@ -35,20 +90,25 @@ async def _sum_por_categoria(id_lote: int) -> Dict[str, float]:
             tot[cat] += float(c.monto or 0.0)
     return tot
 
-async def build_features_para_modelo(id_lote: int) -> Dict[str, Any]:
+async def build_features_para_modelo(
+    id_lote: int,
+    desde: Optional[str] = None,
+    hasta: Optional[str] = None,
+    with_detalle: bool = False
+) -> Dict[str, Any]:
     lote = await db.lote.find_unique(where={"id_lote": id_lote})
     if lote is None:
         raise ValueError("lote_not_found")
 
     # Sumas por tipo (para obtener adquisición, logística y alimentación)
-    sum_by_tipo = await _sum_por_tipocosto(id_lote)
+    sum_by_tipo = await _sum_por_tipocosto(id_lote, desde=desde, hasta=hasta)
 
     total_adquisicion = sum(sum_by_tipo.get(n, 0.0) for n in sum_by_tipo if _norm(n) in ALIAS_ADQUISICION)
     total_logistica   = sum(sum_by_tipo.get(n, 0.0) for n in sum_by_tipo if _norm(n) in ALIAS_LOGISTICA)
     total_alimentacion = sum(sum_by_tipo.get(n, 0.0) for n in sum_by_tipo if _norm(n) in ALIAS_ALIMENTACION)
 
     # Sumas por categoría (para negocio)
-    by_cat = await _sum_por_categoria(id_lote)
+    by_cat = await _sum_por_categoria(id_lote, desde=desde, hasta=hasta)
     costo_fijo_total     = float(by_cat.get("FIJO", 0.0))
     costo_variable_total = float(by_cat.get("VARIABLE", 0.0))
 
@@ -66,12 +126,17 @@ async def build_features_para_modelo(id_lote: int) -> Dict[str, Any]:
 
     # Si existe producción, preferimos kilos reales de salida
     produccion = await db.produccion.find_unique(where={"id_lote": id_lote})
-    kilos_salida = float(produccion.peso_salida_total) if produccion else kilos_entrada
+    if produccion and produccion.peso_salida_total is not None:
+        kilos_salida = float(produccion.peso_salida_total)
+    else:
+        kilos_salida = kilos_entrada
 
     # precio_compra_kg: usar el campo directo de la BD o calcular si no existe
     precio_compra_kg = float(lote.precio_compra_kg or 0.0)
-    if precio_compra_kg == 0.0 and kilos_entrada > 0:
+    if precio_compra_kg == 0.0 and kilos_entrada > 0 and total_adquisicion > 0:
         precio_compra_kg = total_adquisicion / kilos_entrada
+    elif precio_compra_kg == 0.0 and kilos_entrada == 0:
+        precio_compra_kg = 0.0
 
     # Calcular costo_total_lote (CTL) - feature engineering del diseño académico
     costo_total_lote = total_adquisicion + total_logistica + total_alimentacion
@@ -89,7 +154,7 @@ async def build_features_para_modelo(id_lote: int) -> Dict[str, Any]:
         "peso_salida": float(kilos_salida),                          # Feature adicional
     }
 
-    return {
+    resultado: Dict[str, Any] = {
         "lote_id": id_lote,
         "features": features,  
         "extras": {
@@ -103,3 +168,12 @@ async def build_features_para_modelo(id_lote: int) -> Dict[str, Any]:
             "dias_estadia": dias_estadia,
         },
     }
+    
+    # Agregar desglose por tipo de costo si se solicita
+    if with_detalle:
+        resultado["detalle"] = {
+            "por_tipo": sum_by_tipo,
+            "por_categoria": by_cat,
+        }
+    
+    return resultado
