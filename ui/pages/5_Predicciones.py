@@ -14,7 +14,8 @@ from utils.auth import require_auth, get_current_user, inject_reload_warning
 from utils.api_client import APIClient
 from utils.professional_components import (
     metric_card, modern_card, badge, progress_circle,
-    empty_state_modern, alert_modern, stats_card_row
+    empty_state_modern, alert_modern, stats_card_row,
+    stats_card_responsive, responsive_grid
 )
 # Componentes de navegación removidos - usando Streamlit nativo
 from utils.charts import gauge_chart, bar_chart, display_chart
@@ -187,81 +188,61 @@ stats_lote = [
     }
 ]
 
-stats_card_row(stats_lote)
+stats_card_responsive(stats_lote, min_col_width_px=260, gap="1rem")
 
 st.markdown("### Análisis de Costos")
 st.divider()
 
-# Análisis de costos
-col_costos1, col_costos2 = st.columns(2)
+# Análisis de costos (responsive)
+costo_variable_total = extras.get("costo_variable_total", 0)
+detalle_text_var = ""
+if detalle.get("por_categoria") and detalle["por_categoria"].get("VARIABLE", 0) > 0:
+    detalle_text_var = "<strong>Detalle:</strong><br>"
+    por_tipo = detalle.get("por_tipo", {})
+    for tipo, monto in por_tipo.items():
+        if monto > 0:
+            detalle_text_var += f"• {tipo}: Bs. {monto:,.2f}<br>"
+else:
+    detalle_text_var = "Sin costos registrados"
 
-with col_costos1:
-    costo_variable_total = extras.get("costo_variable_total", 0)
-    
-    # Construir contenido del card
-    detalle_text = ""
-    if detalle.get("por_categoria") and detalle["por_categoria"].get("VARIABLE", 0) > 0:
-        detalle_text = "<strong>Detalle:</strong><br>"
-        por_tipo = detalle.get("por_tipo", {})
-        for tipo, monto in por_tipo.items():
-            if monto > 0:
-                detalle_text += f"• {tipo}: Bs. {monto:,.2f}<br>"
-    else:
-        detalle_text = "Sin costos registrados"
-    
-    # Card completo usando solo HTML con contenido renderizado
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
-        border: 1px solid rgba(245, 158, 11, 0.3);
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-    ">
-        <h4 style="color: #FBBF24; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-size: 1.5rem;">📈</span>
-            <span>Costos Variables</span>
-        </h4>
-        <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-            <strong>Total:</strong> Bs. {costo_variable_total:,.2f}<br><br>
-            {detalle_text}
-        </div>
+card_variables = f"""
+<div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
+    <h4 style="color: #FBBF24; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.5rem;">📈</span>
+        <span>Costos Variables</span>
+    </h4>
+    <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
+        <strong>Total:</strong> Bs. {costo_variable_total:,.2f}<br><br>
+        {detalle_text_var}
     </div>
-    """, unsafe_allow_html=True)
+</div>
+"""
 
-with col_costos2:
-    costo_fijo_total = extras.get("costo_fijo_total", 0)
-    
-    # Construir contenido del card
-    detalle_text = ""
-    if detalle.get("por_categoria") and detalle["por_categoria"].get("FIJO", 0) > 0:
-        detalle_text = "**Detalle:**<br>"
-        por_tipo = detalle.get("por_tipo", {})
-        for tipo, monto in por_tipo.items():
-            if monto > 0:
-                detalle_text += f"• {tipo}: Bs. {monto:,.2f}<br>"
-    else:
-        detalle_text = "Sin costos registrados"
-    
-    # Card completo usando solo HTML con contenido renderizado
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
-        border: 1px solid rgba(59, 130, 246, 0.3);
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-    ">
-        <h4 style="color: #60A5FA; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-size: 1.5rem;">📊</span>
-            <span>Costos Fijos</span>
-        </h4>
-        <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-            <strong>Total:</strong> Bs. {costo_fijo_total:,.2f}<br><br>
-            {detalle_text}
-        </div>
+costo_fijo_total = extras.get("costo_fijo_total", 0)
+detalle_text_fijo = ""
+if detalle.get("por_categoria") and detalle["por_categoria"].get("FIJO", 0) > 0:
+    detalle_text_fijo = "<strong>Detalle:</strong><br>"
+    por_tipo = detalle.get("por_tipo", {})
+    for tipo, monto in por_tipo.items():
+        if monto > 0:
+            detalle_text_fijo += f"• {tipo}: Bs. {monto:,.2f}<br>"
+else:
+    detalle_text_fijo = "Sin costos registrados"
+
+card_fijos = f"""
+<div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
+    <h4 style="color: #60A5FA; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 1.5rem;">📊</span>
+        <span>Costos Fijos</span>
+    </h4>
+    <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
+        <strong>Total:</strong> Bs. {costo_fijo_total:,.2f}<br><br>
+        {detalle_text_fijo}
     </div>
-    """, unsafe_allow_html=True)
+</div>
+"""
+
+responsive_grid([card_variables, card_fijos], min_col_width_px=300, gap="1rem")
 
 st.markdown("### Configuración de Predicción")
 st.divider()
@@ -339,52 +320,23 @@ with col_predict2:
                 st.markdown("### Resultados de la Predicción")
                 st.divider()
                 
-                # Métricas principales de predicción
+                # Métricas principales de predicción (responsive)
                 st.markdown("### 📊 Resultados Principales")
                 
-                col_r1, col_r2, col_r3, col_r4 = st.columns(4)
-                
-                with col_r1:
-                    precio_base = prediction.get("precio_base_kg", 0)
-                    metric_card(
-                        label="Precio Base ML",
-                        value=f"{precio_base:.4f}",
-                        icon="🤖",
-                        color="primary"
-                    )
-                    st.caption("Predicción del modelo")
-                
-                with col_r2:
-                    fijo_por_kg = prediction.get("fijo_por_kg", 0)
-                    metric_card(
-                        label="Fijo por kg",
-                        value=f"{fijo_por_kg:.4f}",
-                        icon="📊",
-                        color="warning"
-                    )
-                    st.caption("Costos fijos / kg")
-                
-                with col_r3:
-                    precio_sugerido = prediction.get("precio_sugerido_kg", 0)
-                    metric_card(
-                        label="Precio Sugerido",
-                        value=f"{precio_sugerido:.4f}",
-                        icon="💰",
-                        color="success",
-                        delta=f"+{margen_rate}%",
-                        delta_color="positive"
-                    )
-                    st.caption("Precio final con margen")
-                
-                with col_r4:
-                    ganancia_neta = prediction.get("ganancia_neta_estimada", 0)
-                    metric_card(
-                        label="Ganancia Neta",
-                        value=f"{ganancia_neta:,.2f}",
-                        icon="💵",
-                        color="info"
-                    )
-                    st.caption("Bs.")
+                precio_base = prediction.get("precio_base_kg", 0)
+                fijo_por_kg = prediction.get("fijo_por_kg", 0)
+                precio_sugerido = prediction.get("precio_sugerido_kg", 0)
+                subtotal = precio_base + fijo_por_kg
+                margen_aplicado = ((precio_sugerido - subtotal) / subtotal * 100) if subtotal > 0 else margen_rate
+                margen_formato = f"{margen_aplicado:.0f}%" if margen_aplicado % 1 == 0 else f"{margen_aplicado:.1f}%"
+                ganancia_neta = prediction.get("ganancia_neta_estimada", 0)
+
+                stats_card_responsive([
+                    {"label": "Precio Base ML", "value": f"{precio_base:.4f}", "icon": "🤖", "color": "primary"},
+                    {"label": "Fijo por kg", "value": f"{fijo_por_kg:.4f}", "icon": "📊", "color": "warning"},
+                    {"label": "Precio Sugerido", "value": f"{precio_sugerido:.4f}", "icon": "💰", "color": "success", "delta": f"+{margen_formato}", "delta_color": "positive"},
+                    {"label": "Ganancia Neta", "value": f"{ganancia_neta:,.2f}", "icon": "💵", "color": "info"},
+                ], min_col_width_px=260, gap="1rem")
                 
                 st.markdown("### Desglose Detallado")
                 st.divider()
@@ -419,58 +371,43 @@ with col_predict2:
                 st.markdown("### Información Adicional")
                 st.divider()
                 
-                col_info1, col_info2 = st.columns(2)
-                
-                with col_info1:
-                    # Card de datos de predicción usando HTML directo
-                    st.markdown(f"""
-                    <div style="
-                        background: linear-gradient(135deg, rgba(255, 145, 164, 0.1) 0%, rgba(255, 127, 149, 0.1) 100%);
-                        border: 1px solid rgba(255, 145, 164, 0.3);
-                        border-radius: 16px;
-                        padding: 1.5rem;
-                        margin-bottom: 1rem;
-                    ">
-                        <h4 style="color: #FF91A4; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.5rem;">🔍</span>
-                            <span>Datos de la Predicción</span>
-                        </h4>
-                        <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-                            <strong>Número de Predicción:</strong> {prediction.get('prediccion_id', 'N/A')}<br>
-                            <strong>Número del Lote:</strong> {prediction.get('lote_id', 'N/A')}<br>
-                            <strong>Modelo:</strong> LinearRegression<br>
-                            <strong>Precisión:</strong> 93.4% (R²)
-                        </div>
+                # Cards de información adicional (responsive)
+                card_pred = f"""
+                <div style="background: linear-gradient(135deg, rgba(255, 145, 164, 0.1) 0%, rgba(255, 127, 149, 0.1) 100%); border: 1px solid rgba(255, 145, 164, 0.3); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
+                    <h4 style="color: #FF91A4; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">🔍</span>
+                        <span>Datos de la Predicción</span>
+                    </h4>
+                    <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
+                        <strong>Número de Predicción:</strong> {prediction.get('prediccion_id', 'N/A')}<br>
+                        <strong>Número del Lote:</strong> {prediction.get('lote_id', 'N/A')}<br>
+                        <strong>Modelo:</strong> LinearRegression<br>
+                        <strong>Precisión:</strong> 93.4% (R²)
                     </div>
-                    """, unsafe_allow_html=True)
-                
-                with col_info2:
-                    peso_salida = extras.get("peso_salida_total", 0)
-                    ingreso_total = precio_sugerido * peso_salida if peso_salida > 0 else 0
-                    costo_total = costo_variable_total + costo_fijo_total
-                    roi = (ganancia_neta / costo_total * 100) if costo_total > 0 else 0
-                    
-                    # Card de proyección financiera usando HTML directo
-                    st.markdown(f"""
-                    <div style="
-                        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
-                        border: 1px solid rgba(16, 185, 129, 0.3);
-                        border-radius: 16px;
-                        padding: 1.5rem;
-                        margin-bottom: 1rem;
-                    ">
-                        <h4 style="color: #10B981; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.5rem;">💰</span>
-                            <span>Proyección Financiera</span>
-                        </h4>
-                        <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-                            <strong>Peso Salida Total:</strong> {peso_salida:.2f} kg<br>
-                            <strong>Ingreso Total Estimado:</strong> Bs. {ingreso_total:,.2f}<br>
-                            <strong>Costo Total:</strong> Bs. {costo_total:,.2f}<br>
-                            <strong>ROI:</strong> {roi:.2f}%
-                        </div>
+                </div>
+                """
+
+                peso_salida = extras.get("peso_salida_total", 0)
+                ingreso_total = precio_sugerido * peso_salida if peso_salida > 0 else 0
+                costo_total = costo_variable_total + costo_fijo_total
+                roi = (ganancia_neta / costo_total * 100) if costo_total > 0 else 0
+
+                card_proj = f"""
+                <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
+                    <h4 style="color: #10B981; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">💰</span>
+                        <span>Proyección Financiera</span>
+                    </h4>
+                    <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
+                        <strong>Peso Salida Total:</strong> {peso_salida:.2f} kg<br>
+                        <strong>Ingreso Total Estimado:</strong> Bs. {ingreso_total:,.2f}<br>
+                        <strong>Costo Total:</strong> Bs. {costo_total:,.2f}<br>
+                        <strong>ROI:</strong> {roi:.2f}%
                     </div>
-                    """, unsafe_allow_html=True)
+                </div>
+                """
+
+                responsive_grid([card_pred, card_proj], min_col_width_px=320, gap="1rem")
                 
                 # Gráfico de comparación
                 st.markdown("<br>", unsafe_allow_html=True)

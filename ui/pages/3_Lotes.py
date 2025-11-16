@@ -15,7 +15,8 @@ from utils.auth import require_auth, get_current_user, inject_reload_warning
 from utils.api_client import APIClient
 from utils.professional_components import (
     modern_card, metric_card, badge, status_indicator,
-    empty_state_modern, alert_modern, show_toast, skeleton_loader
+    empty_state_modern, alert_modern, show_toast, skeleton_loader,
+    stats_card_responsive
 )
 # Componentes de navegación removidos - usando Streamlit nativo
 from utils.styles import inject_custom_css
@@ -102,43 +103,17 @@ with tab1:
                 elif sort_option == "Fecha (Antigua)":
                     filtered_lotes = sorted(filtered_lotes, key=lambda x: x.get("fecha_adquisicion", ""))
                 
-                # Mostrar métricas rápidas
-                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-                
-                with col_m1:
-                    metric_card(
-                        label="Total Lotes",
-                        value=len(filtered_lotes),
-                        icon="🐷",
-                        color="primary"
-                    )
-                
-                with col_m2:
-                    total_animales = sum(l.get("cantidad_animales", 0) for l in filtered_lotes)
-                    metric_card(
-                        label="Total Animales",
-                        value=f"{total_animales:,}",
-                        icon="🐖",
-                        color="success"
-                    )
-                
-                with col_m3:
-                    peso_prom = sum(l.get("peso_promedio_entrada", 0) for l in filtered_lotes) / len(filtered_lotes) if filtered_lotes else 0
-                    metric_card(
-                        label="Peso Promedio",
-                        value=f"{peso_prom:.1f} kg",
-                        icon="⚖️",
-                        color="warning"
-                    )
-                
-                with col_m4:
-                    precio_prom = sum(l.get("precio_compra_kg", 0) or 0 for l in filtered_lotes) / len([l for l in filtered_lotes if l.get("precio_compra_kg")]) if filtered_lotes else 0
-                    metric_card(
-                        label="Precio Promedio",
-                        value=f"{precio_prom:.2f} Bs/kg",
-                        icon="💰",
-                        color="info"
-                    )
+                # Mostrar métricas rápidas (responsive)
+                total_animales = sum(l.get("cantidad_animales", 0) for l in filtered_lotes)
+                peso_prom = sum(l.get("peso_promedio_entrada", 0) for l in filtered_lotes) / len(filtered_lotes) if filtered_lotes else 0
+                precio_prom = sum(l.get("precio_compra_kg", 0) or 0 for l in filtered_lotes) / len([l for l in filtered_lotes if l.get("precio_compra_kg")]) if filtered_lotes else 0
+
+                stats_card_responsive([
+                    {"label": "Total Lotes", "value": len(filtered_lotes), "icon": "🐷", "color": "primary"},
+                    {"label": "Total Animales", "value": f"{total_animales:,}", "icon": "🐖", "color": "success"},
+                    {"label": "Peso Promedio", "value": f"{peso_prom:.1f} kg", "icon": "⚖️", "color": "warning"},
+                    {"label": "Precio Promedio", "value": f"{precio_prom:.2f} Bs/kg", "icon": "💰", "color": "info"},
+                ], min_col_width_px=260, gap="1rem")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.divider()
@@ -228,42 +203,15 @@ with tab2:
         st.markdown("### 📋 Detalles del Lote Creado")
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Cards con la información principal
-        col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-        
-        with col_d1:
-            metric_card(
-                label="Número del Lote",
-                value=lote_id,
-                icon="🔢",
-                color="primary"
-            )
-        
-        with col_d2:
-            metric_card(
-                label="Cantidad de Animales",
-                value=lote_creado.get('cantidad_animales', 0),
-                icon="🐖",
-                color="success"
-            )
-        
-        with col_d3:
-            peso = lote_creado.get('peso_promedio_entrada', 0)
-            metric_card(
-                label="Peso Promedio",
-                value=f"{peso:.1f} kg",
-                icon="⚖️",
-                color="warning"
-            )
-        
-        with col_d4:
-            precio = lote_creado.get('precio_compra_kg', 0) or 0
-            metric_card(
-                label="Precio Compra",
-                value=f"Bs. {precio:.2f}/kg" if precio > 0 else "No especificado",
-                icon="💰",
-                color="info"
-            )
+        # Cards con la información principal (responsive)
+        peso = lote_creado.get('peso_promedio_entrada', 0)
+        precio = lote_creado.get('precio_compra_kg', 0) or 0
+        stats_card_responsive([
+            {"label": "Número del Lote", "value": lote_id, "icon": "🔢", "color": "primary"},
+            {"label": "Cantidad de Animales", "value": lote_creado.get('cantidad_animales', 0), "icon": "🐖", "color": "success"},
+            {"label": "Peso Promedio", "value": f"{peso:.1f} kg", "icon": "⚖️", "color": "warning"},
+            {"label": "Precio Compra", "value": f"Bs. {precio:.2f}/kg" if precio > 0 else "No especificado", "icon": "💰", "color": "info"},
+        ], min_col_width_px=260, gap="1rem")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
@@ -416,43 +364,16 @@ with tab3:
                 if selected_lote:
                     st.markdown("<br>", unsafe_allow_html=True)
                     
-                    # Mostrar información actual del lote con cards modernas
+                    # Mostrar información actual del lote con cards modernas (responsive)
                     st.markdown("### 📊 Información Actual del Lote")
-                    col_info1, col_info2, col_info3, col_info4 = st.columns(4)
-                    
-                    with col_info1:
-                        metric_card(
-                            label="Número del Lote",
-                            value=selected_lote_id,
-                            icon="🔢",
-                            color="primary"
-                        )
-                    
-                    with col_info2:
-                        metric_card(
-                            label="Animales",
-                            value=selected_lote.get('cantidad_animales', 0),
-                            icon="🐖",
-                            color="success"
-                        )
-                    
-                    with col_info3:
-                        peso = selected_lote.get('peso_promedio_entrada', 0)
-                        metric_card(
-                            label="Peso Promedio",
-                            value=f"{peso:.1f} kg",
-                            icon="⚖️",
-                            color="warning"
-                        )
-                    
-                    with col_info4:
-                        precio = selected_lote.get('precio_compra_kg', 0) or 0
-                        metric_card(
-                            label="Precio Compra",
-                            value=f"Bs. {precio:.2f}/kg" if precio > 0 else "No especificado",
-                            icon="💰",
-                            color="info"
-                        )
+                    peso = selected_lote.get('peso_promedio_entrada', 0)
+                    precio = selected_lote.get('precio_compra_kg', 0) or 0
+                    stats_card_responsive([
+                        {"label": "Número del Lote", "value": selected_lote_id, "icon": "🔢", "color": "primary"},
+                        {"label": "Animales", "value": selected_lote.get('cantidad_animales', 0), "icon": "🐖", "color": "success"},
+                        {"label": "Peso Promedio", "value": f"{peso:.1f} kg", "icon": "⚖️", "color": "warning"},
+                        {"label": "Precio Compra", "value": f"Bs. {precio:.2f}/kg" if precio > 0 else "No especificado", "icon": "💰", "color": "info"},
+                    ], min_col_width_px=260, gap="1rem")
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     

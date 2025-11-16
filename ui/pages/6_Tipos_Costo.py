@@ -18,7 +18,7 @@ from utils.advanced_charts import (
 )
 from utils.professional_components import (
     metric_card, modern_card, alert_modern, empty_state_modern,
-    badge, stats_card_row
+    badge, stats_card_row, stats_card_responsive, responsive_grid
 )
 from utils.simple_sidebar import page_config, render_simple_sidebar
 from utils.styles import inject_custom_css
@@ -153,7 +153,7 @@ with tab1:
                     }
                 ]
                 
-                stats_card_row(stats)
+                stats_card_responsive(stats, min_col_width_px=260, gap="1rem")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
@@ -393,23 +393,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Contenido de aliases usando componentes nativos de Streamlit
-col_al1, col_al2, col_al3 = st.columns(3)
-
-with col_al1:
-    st.markdown("**Adquisición:**")
-    st.markdown("- adquisición")
-    st.markdown("- compra")
-    st.markdown("- precio_compra")
-
-with col_al2:
-    st.markdown("**Logística:**")
-    st.markdown("- logística")
-    st.markdown("- transporte")
-    st.markdown("- flete")
-    st.markdown("- combustible")
-
-with col_al3:
-    st.markdown("**Alimentación:**")
-    st.markdown("- alimentación")
-    st.markdown("- comida")
-    st.markdown("- pienso")
+# Versión responsive de los bloques de alias
+alias_cards = []
+alias_cards.append("""
+<div style="background: rgba(26,26,46,0.6); border: 1px solid rgba(255,145,164,0.25); border-radius: 12px; padding: 1rem;">
+  <div style="font-weight:700; color:#FFFFFF; margin-bottom:0.5rem;">Adquisición</div>
+  <div style="color:#E5E7EB; line-height:1.8;">
+    - adquisición<br>
+    - compra<br>
+    - precio_compra
+  </div>
+</div>
+""")
+alias_cards.append("""
+<div style="background: rgba(26,26,46,0.6); border: 1px solid rgba(255,145,164,0.25); border-radius: 12px; padding: 1rem;">
+  <div style="font-weight:700; color:#FFFFFF; margin-bottom:0.5rem;">Logística</div>
+  <div style="color:#E5E7EB; line-height:1.8;">
+    - logística<br>
+    - transporte<br>
+    - flete<br>
+    - combustible
+  </div>
+</div>
+""")
+alias_cards.append("""
+<div style="background: rgba(26,26,46,0.6); border: 1px solid rgba(255,145,164,0.25); border-radius: 12px; padding: 1rem;">
+  <div style="font-weight:700; color:#FFFFFF; margin-bottom:0.5rem;">Alimentación</div>
+  <div style="color:#E5E7EB; line-height:1.8;">
+    - alimentación<br>
+    - comida<br>
+    - pienso
+  </div>
+</div>
+""")
+responsive_grid(alias_cards, min_col_width_px=260, gap="1rem", class_name="ui-grid-alias")

@@ -10,8 +10,8 @@ psycopg[binary]
 structlog
 pydantic-settings
 passlib[bcrypt]
-PyJWT
-pydantic-settings
 prisma
 pandas  
 numpy
+joblib
+scikit-learn

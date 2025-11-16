@@ -18,7 +18,7 @@ from utils.advanced_charts import (
     kpi_gauge, display_chart, CORPORATE_COLORS
 )
 from utils.professional_components import (
-    metric_card, alert_modern, empty_state_modern, stats_card_row
+    metric_card, alert_modern, empty_state_modern, stats_card_row, stats_card_responsive
 )
 from utils.simple_sidebar import page_config, render_simple_sidebar
 from utils.styles import inject_custom_css
@@ -38,20 +38,31 @@ render_simple_sidebar("4_Costos.py", user)
 st.markdown("""
 <style>
     .cost-header {
-        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-        color: white;
+        background: linear-gradient(135deg, rgba(10,10,10,0.85) 0%, rgba(26,26,46,0.85) 100%);
+        color: #E5E7EB;
         padding: 2rem;
         border-radius: 16px;
         margin-bottom: 2rem;
-        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
+        border: 2px solid #3A3A4A;
+        box-shadow: 0 10px 30px rgba(255, 145, 164, 0.15);
+        position: relative;
+        overflow: hidden;
+    }
+    .cost-header::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(1200px 400px at 10% -20%, rgba(255,145,164,0.12), transparent 60%),
+                    radial-gradient(800px 300px at 110% 120%, rgba(59,130,246,0.10), transparent 60%);
+        pointer-events: none;
     }
     .section-title {
         font-size: 1.5rem;
         font-weight: 700;
-        color: #1F2937;
+        color: #E5E7EB;
         margin: 2rem 0 1rem 0;
         padding-bottom: 0.5rem;
-        border-bottom: 3px solid #F59E0B;
+        border-bottom: 3px solid #FF91A4;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -62,8 +73,8 @@ api = APIClient()
 # ========== HEADER ==========
 st.markdown("""
 <div class="cost-header">
-    <h1 style="margin: 0 0 0.5rem 0; font-size: 2.5rem;">Control de Costos</h1>
-    <p style="margin: 0; font-size: 1.125rem; opacity: 0.95;">Gestión financiera y análisis de gastos por lote</p>
+    <h1 style="margin: 0 0 0.5rem 0; font-size: 2.5rem; color:#FFFFFF;">Control de Costos</h1>
+    <p style="margin: 0; font-size: 1.125rem; opacity: 0.9; color:#B0B0B0;">Gestión financiera y análisis de gastos por lote</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -168,7 +179,7 @@ with tab1:
                     }
                 ]
                 
-                stats_card_row(stats)
+                stats_card_responsive(stats, min_col_width_px=260, gap="1rem")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 

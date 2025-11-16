@@ -87,7 +87,8 @@ def metric_card(
     delta: Optional[str] = None,
     delta_color: str = "positive",
     trend_data: Optional[List[float]] = None,
-    color: str = "primary"
+    color: str = "primary",
+    render_only: bool = False
 ):
     """
     Card de métrica profesional con indicadores visuales
@@ -100,6 +101,7 @@ def metric_card(
         delta_color: Color del delta (positive, negative, neutral)
         trend_data: Datos para mini gráfico de tendencia
         color: Color del card
+        render_only: Si True, devuelve el HTML sin renderizarlo
     """
     color_schemes = {
         "primary": {"main": "#3B82F6", "light": "#DBEAFE", "bg": "#EFF6FF"},
@@ -111,6 +113,7 @@ def metric_card(
     
     scheme = color_schemes.get(color, color_schemes["primary"])
     
+    # Construir el HTML del delta de forma más segura
     delta_html = ""
     if delta:
         delta_colors = {
@@ -120,58 +123,18 @@ def metric_card(
         }
         delta_color_val = delta_colors.get(delta_color, delta_colors["neutral"])
         delta_icon = "↗" if delta_color == "positive" else "↘" if delta_color == "negative" else "→"
-        delta_html = f"""
-        <div style="
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            font-size: 0.875rem;
-            color: {delta_color_val};
-            font-weight: 600;
-            margin-top: 0.5rem;
-        ">
-            <span>{delta_icon}</span>
-            <span>{delta}</span>
-        </div>
-        """
+        # Escapar el delta para evitar problemas con caracteres especiales
+        delta_escaped = str(delta).replace("'", "&#39;").replace('"', "&quot;")
+        # HTML en una sola línea sin saltos de línea
+        delta_html = f'<div style="display:inline-flex;align-items:center;gap:0.25rem;font-size:0.875rem;color:{delta_color_val};font-weight:600;margin-top:0.5rem;"><span>{delta_icon}</span><span>{delta_escaped}</span></div>'
     
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #0A0A0A 0%, #1A1A2E 100%);
-        border: 2px solid #3A3A4A;
-        border-radius: 16px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        cursor: pointer;
-        height: 100%;
-        position: relative;
-        overflow: hidden;
-    " onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 12px 40px rgba(255, 145, 164, 0.25)'; this.style.borderColor='#FF91A4';" 
-       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0, 0, 0, 0.3)'; this.style.borderColor='#3A3A4A';">
-        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-            <div style="
-                background: rgba(255, 145, 164, 0.1);
-                border: 2px solid rgba(255, 145, 164, 0.2);
-                border-radius: 12px;
-                padding: 0.75rem;
-                font-size: 1.75rem;
-                transition: all 0.3s ease;
-            ">
-                {icon}
-            </div>
-            <div style="flex: 1;">
-                <div style="color: #B0B0B0; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                    {label}
-                </div>
-                <div style="color: #FFFFFF; font-size: 2rem; font-weight: 700; line-height: 1; background: linear-gradient(135deg, #FFFFFF 0%, #E0E0E0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
-                    {value}
-                </div>
-            </div>
-        </div>
-        {delta_html}
-    </div>
-    """, unsafe_allow_html=True)
+    # Construir el HTML principal sin saltos de línea en los estilos críticos
+    card_html = f"""<div style="background:linear-gradient(135deg,#0A0A0A 0%,#1A1A2E 100%);border:2px solid #3A3A4A;border-radius:16px;padding:1.5rem;box-shadow:0 4px 15px rgba(0,0,0,0.3);transition:all 0.3s cubic-bezier(0.4,0,0.2,1);cursor:pointer;height:100%;position:relative;overflow:hidden;" onmouseover="this.style.transform='translateY(-6px)';this.style.boxShadow='0 12px 40px rgba(255,145,164,0.25)';this.style.borderColor='#FF91A4';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(0,0,0,0.3)';this.style.borderColor='#3A3A4A';"><div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;"><div style="background:rgba(255,145,164,0.1);border:2px solid rgba(255,145,164,0.2);border-radius:12px;padding:0.75rem;font-size:1.75rem;transition:all 0.3s ease;">{icon}</div><div style="flex:1;"><div style="color:#B0B0B0;font-size:0.875rem;font-weight:600;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.5px;">{label}</div><div style="color:#FFFFFF;font-size:2rem;font-weight:700;line-height:1;background:linear-gradient(135deg,#FFFFFF 0%,#E0E0E0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">{value}</div></div></div>{delta_html}</div>"""
+
+    if render_only:
+        return card_html
+    
+    st.markdown(card_html, unsafe_allow_html=True)
 
 
 def stats_card_row(stats: List[Dict[str, Any]]):
@@ -193,6 +156,68 @@ def stats_card_row(stats: List[Dict[str, Any]]):
                 color=stat.get("color", "primary")
             )
 
+
+def responsive_grid(items_html: List[str], min_col_width_px: int = 260, gap: str = "1rem", class_name: str = "ui-grid"):
+    """
+    Renderiza un grid responsive con CSS Grid.
+
+    Args:
+        items_html: Lista de fragmentos HTML (cada item es una celda)
+        min_col_width_px: Ancho mínimo de columna antes de envolver
+        gap: Separación entre celdas (CSS)
+        class_name: Clase base para estilos (permite múltiples grids en la misma página)
+    """
+    # CSS del grid con columnas automáticas y media queries suaves
+    st.markdown(f"""
+    <style>
+    .{class_name} {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax({min_col_width_px}px, 1fr));
+        gap: {gap};
+        align-items: stretch;
+    }}
+    /* Ajustes de espacios en pantallas muy pequeñas */
+    @media (max-width: 400px) {{
+        .{class_name} {{
+            gap: 0.75rem;
+        }}
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+    html = f'<div class="{class_name}">'
+    for item in items_html:
+        html += f'<div class="{class_name}__item">{item}</div>'
+    html += "</div>"
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def stats_card_responsive(
+    stats: List[Dict[str, Any]],
+    min_col_width_px: int = 260,
+    gap: str = "1rem"
+):
+    """
+    Versión responsive de la fila de métricas usando CSS Grid.
+
+    Args:
+        stats: Lista de diccionarios con label, value, icon, delta, color
+        min_col_width_px: Ancho mínimo de columna
+        gap: Separación entre cards
+    """
+    items = []
+    for stat in stats:
+        card = metric_card(
+            label=stat.get("label", ""),
+            value=stat.get("value", ""),
+            icon=stat.get("icon", "📊"),
+            delta=stat.get("delta"),
+            delta_color=stat.get("delta_color", "neutral"),
+            color=stat.get("color", "primary"),
+            render_only=True
+        )
+        items.append(card)
+    responsive_grid(items, min_col_width_px=min_col_width_px, gap=gap, class_name="ui-grid-stats")
 
 # ==================== MODALS Y DIALOGS ====================
 

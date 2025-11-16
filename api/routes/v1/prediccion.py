@@ -17,11 +17,21 @@ def load_model():
     path = settings.MODEL_PATH
     if not os.path.exists(path):
         raise FileNotFoundError(f"Modelo no encontrado en: {path}")
-    model_data = joblib.load(path)
+    
+    try:
+        # Intentar cargar con modo binario explícito
+        with open(path, 'rb') as f:
+            model_data = joblib.load(f)
+    except Exception as e:
+        # Si falla, intentar sin contexto manager
+        try:
+            model_data = joblib.load(path)
+        except Exception as e2:
+            raise ValueError(f"Error al cargar el modelo: {str(e2)}. El archivo puede estar corrupto o incompatible con esta versión de joblib.")
     
     # El modelo guardado es un diccionario con múltiples componentes
     if isinstance(model_data, dict):
-        return model_data['model'], model_data['scaler']
+        return model_data['model'], model_data.get('scaler')
     else:
         # Fallback para modelos simples
         return model_data, None
