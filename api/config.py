@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Base de datos
-    DATABASE_URL: str = "postgresql://granjadelcerdo_pdb_user:Kuef1xTZUY9SxoggqmFxPDXo2LLkteWF@dpg-d3pa6q1r0fns73afp7h0-a.oregon-postgres.render.com/granjadelcerdo_pdb"
+    DATABASE_URL: str = "postgresql://granjacerdo_pdb_user:fkVQaTQeeg5KvgdkM0WKdaw9njrNCo8y@dpg-d4d3dammcj7s73cj6rs0-a.oregon-postgres.render.com/granjacerdo_pdb"
     
     # Autenticación
     JWT_SECRET: str = "mysecret123"
