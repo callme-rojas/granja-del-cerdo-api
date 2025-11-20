@@ -34,10 +34,14 @@ def create_lote(body: LoteCreate):
             # ISO completo con Z o sin Z
             clean_str = re.sub(r"Z$", "", fecha_str.strip())
             fecha = datetime.fromisoformat(clean_str)
+            # Asegurar que la hora sea 00:00:00 (solo fecha)
+            fecha = fecha.replace(hour=0, minute=0, second=0, microsecond=0)
         except Exception:
             try:
                 # Formato solo fecha (YYYY-MM-DD)
                 fecha = datetime.strptime(fecha_str.strip(), "%Y-%m-%d")
+                # Asegurar que la hora sea 00:00:00 (solo fecha)
+                fecha = fecha.replace(hour=0, minute=0, second=0, microsecond=0)
             except Exception as e:
                 print(f"⚠️ Error al convertir fecha: {e}")
                 return None, "invalid_fecha_adquisicion_format"
@@ -67,15 +71,75 @@ def create_lote(body: LoteCreate):
 @require_jwt
 def get_lotes():
     async def _get_lotes():
-        await connect_db()
         try:
-            lotes = await db.lote.find_many(order={"id_lote": "desc"})
-            return [lote.dict() for lote in lotes]
+            await connect_db()
+            
+            # Obtener parámetros de paginación (opcional)
+            limit = request.args.get("limit", type=int)
+            skip = request.args.get("skip", type=int)
+            
+            # Construir query base - Optimizado para evitar timeouts
+            # Limitar por defecto a 50 lotes para evitar problemas de rendimiento con muchos datos
+            query_limit = limit if limit else 50
+            query_skip = skip if skip else 0
+            
+            # Usar select explícito para solo obtener campos necesarios
+            # Esto reduce significativamente el payload y evita timeouts
+            try:
+                lotes = await db.lote.find_many(
+                    order={"id_lote": "desc"},
+                    take=query_limit,
+                    skip=query_skip,
+                    select={
+                        "id_lote": True,
+                        "fecha_adquisicion": True,
+                        "cantidad_animales": True,
+                        "peso_promedio_entrada": True,
+                        "duracion_estadia_dias": True,
+                        "precio_compra_kg": True,
+                        "id_usuario_creador": True,
+                    }
+                )
+            except Exception as db_error:
+                # Si falla con select, intentar sin select pero con límite más pequeño
+                print(f"Warning: Error con select, usando método alternativo: {db_error}")
+                lotes = await db.lote.find_many(
+                    order={"id_lote": "desc"},
+                    take=min(query_limit, 50),  # Máximo 50 si falla select
+                    skip=query_skip
+                )
+            
+            # Convertir a dict manualmente (ya viene optimizado del select)
+            lotes_data = []
+            for lote in lotes:
+                lote_dict = {
+                    "id_lote": lote.id_lote,
+                    "fecha_adquisicion": lote.fecha_adquisicion.isoformat() if lote.fecha_adquisicion else None,
+                    "cantidad_animales": lote.cantidad_animales,
+                    "peso_promedio_entrada": lote.peso_promedio_entrada,
+                    "duracion_estadia_dias": lote.duracion_estadia_dias,
+                    "precio_compra_kg": lote.precio_compra_kg,
+                    "id_usuario_creador": lote.id_usuario_creador,
+                }
+                lotes_data.append(lote_dict)
+            
+            return lotes_data
+        except Exception as e:
+            print(f"Error en _get_lotes: {e}")
+            raise
         finally:
-            await disconnect_db()
+            try:
+                await disconnect_db()
+            except:
+                pass
     
-    lotes = asyncio.run(_get_lotes())
-    return jsonify(lotes), 200
+    try:
+        lotes = asyncio.run(_get_lotes())
+        return jsonify(lotes), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify(error=f"Error al obtener lotes: {str(e)}"), 500
     
 class LoteUpdate(BaseModel):
     # Campos que se pueden actualizar en un lote
@@ -104,10 +168,14 @@ def update_lote(id_lote: int, body: LoteUpdate):
                 # ISO completo con Z o sin Z
                 clean_str = re.sub(r"Z$", "", fecha_str.strip())
                 fecha = datetime.fromisoformat(clean_str)
+                # Asegurar que la hora sea 00:00:00 (solo fecha)
+                fecha = fecha.replace(hour=0, minute=0, second=0, microsecond=0)
             except Exception:
                 try:
                     # Formato solo fecha (YYYY-MM-DD)
                     fecha = datetime.strptime(fecha_str.strip(), "%Y-%m-%d")
+                    # Asegurar que la hora sea 00:00:00 (solo fecha)
+                    fecha = fecha.replace(hour=0, minute=0, second=0, microsecond=0)
                 except Exception as e:
                     print(f"⚠️ Error al convertir fecha: {e}")
                     return None, "invalid_fecha_adquisicion_format"

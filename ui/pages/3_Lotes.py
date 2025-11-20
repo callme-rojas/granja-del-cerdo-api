@@ -111,7 +111,7 @@ with tab1:
                 stats_card_responsive([
                     {"label": "Total Lotes", "value": len(filtered_lotes), "icon": "🐷", "color": "primary"},
                     {"label": "Total Animales", "value": f"{total_animales:,}", "icon": "🐖", "color": "success"},
-                    {"label": "Peso Promedio", "value": f"{peso_prom:.1f} kg", "icon": "⚖️", "color": "warning"},
+                    {"label": "Peso Promedio", "value": f"{peso_prom:.2f} kg", "icon": "⚖️", "color": "warning"},
                     {"label": "Precio Promedio", "value": f"{precio_prom:.2f} Bs/kg", "icon": "💰", "color": "info"},
                 ], min_col_width_px=260, gap="1rem")
                 
@@ -125,13 +125,20 @@ with tab1:
                     df_data = []
                     for lote in filtered_lotes:
                         fecha = lote.get("fecha_adquisicion", "N/A")
-                        if fecha and fecha != "N/A" and "T" in fecha:
-                            fecha = fecha.split("T")[0]
-                            try:
-                                fecha_obj = datetime.strptime(fecha, "%Y-%m-%d")
-                                fecha = fecha_obj.strftime("%d/%m/%Y")
-                            except:
-                                pass
+                        if fecha and fecha != "N/A":
+                            # Remover hora si existe
+                            if isinstance(fecha, str):
+                                if "T" in fecha:
+                                    fecha = fecha.split("T")[0]
+                                elif " " in fecha:
+                                    fecha = fecha.split(" ")[0]
+                                try:
+                                    fecha_obj = datetime.strptime(fecha, "%Y-%m-%d")
+                                    fecha = fecha_obj.strftime("%d/%m/%Y")
+                                except:
+                                    pass
+                            elif isinstance(fecha, datetime):
+                                fecha = fecha.strftime("%d/%m/%Y")
                         
                         df_data.append({
                             "Número del Lote": lote.get("id_lote", "N/A"),
@@ -209,8 +216,8 @@ with tab2:
         stats_card_responsive([
             {"label": "Número del Lote", "value": lote_id, "icon": "🔢", "color": "primary"},
             {"label": "Cantidad de Animales", "value": lote_creado.get('cantidad_animales', 0), "icon": "🐖", "color": "success"},
-            {"label": "Peso Promedio", "value": f"{peso:.1f} kg", "icon": "⚖️", "color": "warning"},
-            {"label": "Precio Compra", "value": f"Bs. {precio:.2f}/kg" if precio > 0 else "No especificado", "icon": "💰", "color": "info"},
+                    {"label": "Peso Promedio", "value": f"{peso:.2f} kg", "icon": "⚖️", "color": "warning"},
+                    {"label": "Precio Compra", "value": f"Bs. {precio:.2f}/kg" if precio > 0 else "No especificado", "icon": "💰", "color": "info"},
         ], min_col_width_px=260, gap="1rem")
         
         st.markdown("<br>", unsafe_allow_html=True)
@@ -346,8 +353,14 @@ with tab3:
                 lote_options = {}
                 for l in lotes:
                     fecha = l.get('fecha_adquisicion', 'N/A')
-                    if fecha != 'N/A' and 'T' in fecha:
-                        fecha = fecha.split('T')[0]
+                    if fecha != 'N/A':
+                        if isinstance(fecha, str):
+                            if 'T' in fecha:
+                                fecha = fecha.split('T')[0]
+                            elif ' ' in fecha:
+                                fecha = fecha.split(' ')[0]
+                        elif isinstance(fecha, datetime):
+                            fecha = fecha.strftime("%Y-%m-%d")
                     
                     label = f"Número: {l['id_lote']} | {l.get('cantidad_animales', 0)} animales | {fecha}"
                     lote_options[label] = l['id_lote']
@@ -371,7 +384,7 @@ with tab3:
                     stats_card_responsive([
                         {"label": "Número del Lote", "value": selected_lote_id, "icon": "🔢", "color": "primary"},
                         {"label": "Animales", "value": selected_lote.get('cantidad_animales', 0), "icon": "🐖", "color": "success"},
-                        {"label": "Peso Promedio", "value": f"{peso:.1f} kg", "icon": "⚖️", "color": "warning"},
+                        {"label": "Peso Promedio", "value": f"{peso:.2f} kg", "icon": "⚖️", "color": "warning"},
                         {"label": "Precio Compra", "value": f"Bs. {precio:.2f}/kg" if precio > 0 else "No especificado", "icon": "💰", "color": "info"},
                     ], min_col_width_px=260, gap="1rem")
                     

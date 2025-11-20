@@ -306,7 +306,7 @@ with col_k1:
         <div class="metric-label">Total Lotes</div>
         <div class="metric-value">{total_lotes:,}</div>
         <div class="metric-delta {'delta-positive' if delta_lotes >= 0 else 'delta-negative'}">
-            {'▲' if delta_lotes >= 0 else '▼'} {abs(delta_lotes):.1f}%
+            {'▲' if delta_lotes >= 0 else '▼'} {abs(delta_lotes):.2f}%
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -317,7 +317,7 @@ with col_k2:
         <div class="metric-label">Total Animales</div>
         <div class="metric-value">{total_animales:,}</div>
         <div class="metric-delta {'delta-positive' if delta_animales >= 0 else 'delta-negative'}">
-            {'▲' if delta_animales >= 0 else '▼'} {abs(delta_animales):.1f}%
+            {'▲' if delta_animales >= 0 else '▼'} {abs(delta_animales):.2f}%
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -326,7 +326,7 @@ with col_k3:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-label">Peso Promedio</div>
-        <div class="metric-value">{peso_promedio:.1f}<span style="font-size:1.5rem"> kg</span></div>
+        <div class="metric-value">{peso_promedio:.2f}<span style="font-size:1.5rem"> kg</span></div>
         <div class="metric-delta">Por animal</div>
     </div>
     """, unsafe_allow_html=True)
@@ -630,7 +630,7 @@ with st.expander("⚙️ Métricas de rendimiento (debug)", expanded=False):
             if isinstance(value, (int, float)):
                 metrics_data.append({
                     "Métrica": metric.replace("_", " ").title(),
-                    "Tiempo (s)": f"{value:.3f}",
+                    "Tiempo (s)": f"{value:.2f}",
                     "Estado": "✅" if value < 1.0 else "⚠️" if value < 3.0 else "❌"
                 })
         
@@ -643,8 +643,8 @@ with st.expander("⚙️ Métricas de rendimiento (debug)", expanded=False):
             fetch_time = perf.get("data_fetch_s", 0)
             st.markdown(f"""
             **Resumen:**
-            - ⏱️ Tiempo total: **{total_time:.3f}s**
-            - 📥 Carga de datos: **{fetch_time:.3f}s** ({fetch_time/total_time*100:.1f}% del total)
+            - ⏱️ Tiempo total: **{total_time:.2f}s**
+            - 📥 Carga de datos: **{fetch_time:.2f}s** ({fetch_time/total_time*100:.2f}% del total)
             - ✅ Objetivo: < 1.5s (First Contentful Paint)
             """)
         else:

@@ -100,10 +100,10 @@ async def build_features_para_modelo(
     if lote is None:
         raise ValueError("lote_not_found")
 
-    # Sumas por tipo (para obtener adquisición, logística y alimentación)
+    # Sumas por tipo (para obtener logística y alimentación de la tabla Costo)
     sum_by_tipo = await _sum_por_tipocosto(id_lote, desde=desde, hasta=hasta)
 
-    total_adquisicion = sum(sum_by_tipo.get(n, 0.0) for n in sum_by_tipo if _norm(n) in ALIAS_ADQUISICION)
+    # total_adquisicion NO se obtiene de la tabla Costo, se calcula del lote
     total_logistica   = sum(sum_by_tipo.get(n, 0.0) for n in sum_by_tipo if _norm(n) in ALIAS_LOGISTICA)
     total_alimentacion = sum(sum_by_tipo.get(n, 0.0) for n in sum_by_tipo if _norm(n) in ALIAS_ALIMENTACION)
 
@@ -129,37 +129,58 @@ async def build_features_para_modelo(
     if produccion and produccion.peso_salida_total is not None:
         kilos_salida = float(produccion.peso_salida_total)
     else:
-        kilos_salida = kilos_entrada
+        # IMPORTANTE: Calcular peso de salida basado en ganancia diaria de peso
+        # Los cerdos ganan entre 0.8 y 1.5 kg por día durante la estadía
+        dias_estadia = lote.duracion_estadia_dias if lote.duracion_estadia_dias else 0
+        if dias_estadia > 0:
+            # Ganancia promedio: 1.15 kg/día (promedio de 0.8-1.5)
+            # Ganancia total = cantidad_animales × ganancia_por_dia × dias_estadia
+            ganancia_por_dia_promedio = 1.15  # kg por cerdo por día
+            ganancia_total = float(lote.cantidad_animales) * ganancia_por_dia_promedio * dias_estadia
+            kilos_salida = kilos_entrada + ganancia_total
+        else:
+            # Si no hay estadía, no hay ganancia de peso
+            kilos_salida = kilos_entrada
 
-    # precio_compra_kg: usar el campo directo de la BD o calcular si no existe
+    # precio_compra_kg: usar el campo directo de la BD
     precio_compra_kg = float(lote.precio_compra_kg or 0.0)
-    if precio_compra_kg == 0.0 and kilos_entrada > 0 and total_adquisicion > 0:
-        precio_compra_kg = total_adquisicion / kilos_entrada
-    elif precio_compra_kg == 0.0 and kilos_entrada == 0:
-        precio_compra_kg = 0.0
+    
+    # IMPORTANTE: Calcular el costo de adquisición (compra de animales)
+    # Esto NO está en la tabla Costo, está en el lote mismo
+    total_adquisicion = kilos_entrada * precio_compra_kg if precio_compra_kg > 0 else 0.0
 
     # Calcular costo_total_lote (CTL) - feature engineering del diseño académico
+    # CTL = costo de compra + logística + alimentación
     costo_total_lote = total_adquisicion + total_logistica + total_alimentacion
     
-    # Features para el modelo ML 
+    # Features para el modelo ML - INCLUYENDO COSTOS FIJOS
+    # IMPORTANTE: El modelo debe recibir costos fijos para predecir correctamente el precio
+    costo_fijo_por_kg = (costo_fijo_total / kilos_salida) if kilos_salida > 0 else 0.0
+    
     features = {
         "cantidad_animales": float(lote.cantidad_animales),           # Nivel I
         "peso_promedio_entrada": float(lote.peso_promedio_entrada),   # Nivel I
         "precio_compra_kg": float(precio_compra_kg),                  # Nivel I
-        "costo_logistica_total": float(total_logistica),              # Nivel II (renombrado para consistencia)
-        "costo_alimentacion_estadia": float(total_alimentacion),       # Nivel II (renombrado para consistencia)
+        "costo_logistica_total": float(total_logistica),              # Nivel II - Costo Variable
+        "costo_alimentacion_estadia": float(total_alimentacion),       # Nivel II - Costo Variable
         "duracion_estadia_dias": float(dias_estadia),                 # Nivel II
         "mes_adquisicion": mes_adq,                                   # Nivel II
-        "costo_total_lote": float(costo_total_lote),                  # Feature engineering (CTL)
+        "costo_total_lote": float(costo_total_lote),                  # Feature engineering (CTL) - Costos Variables
         "peso_salida": float(kilos_salida),                          # Feature adicional
+        "costo_fijo_por_kg": float(costo_fijo_por_kg),              # Nivel III - Costos Fijos (NUEVO)
     }
 
+    # IMPORTANTE: costo_variable_total debe incluir la COMPRA de los animales
+    # costo_variable_total = compra + TODOS los costos VARIABLES de la BD
+    # (incluye: logística, alimentación, agua, energía, materiales, medicamentos, etc.)
+    costo_variable_total_real = total_adquisicion + costo_variable_total
+    
     resultado: Dict[str, Any] = {
         "lote_id": id_lote,
         "features": features,  
         "extras": {
             "costo_fijo_total": float(costo_fijo_total),
-            "costo_variable_total": float(costo_variable_total),
+            "costo_variable_total": float(costo_variable_total_real),  # CORREGIDO: incluye compra
             "kilos_entrada": float(kilos_entrada),
             "peso_salida_total": float(kilos_salida),  # Asegurar que este valor existe
             "total_adquisicion": float(total_adquisicion),
@@ -171,8 +192,29 @@ async def build_features_para_modelo(
     
     # Agregar desglose por tipo de costo si se solicita
     if with_detalle:
+        # Obtener costos con categoría para filtrar correctamente
+        costos_detalle = await db.costo.find_many(
+            where={"id_lote": id_lote},
+            include={"tipo_costo": True},
+        )
+        
+        por_tipo_variable = {}
+        por_tipo_fijo = {}
+        
+        for c in costos_detalle:
+            nombre = _norm(c.tipo_costo.nombre_tipo)
+            categoria = (c.tipo_costo.categoria or "").upper()
+            monto = float(c.monto or 0.0)
+            
+            if categoria == "VARIABLE":
+                por_tipo_variable[nombre] = por_tipo_variable.get(nombre, 0.0) + monto
+            elif categoria == "FIJO":
+                por_tipo_fijo[nombre] = por_tipo_fijo.get(nombre, 0.0) + monto
+        
         resultado["detalle"] = {
-            "por_tipo": sum_by_tipo,
+            "por_tipo": sum_by_tipo,  # Mantener para compatibilidad
+            "por_tipo_variable": por_tipo_variable,  # Solo variables
+            "por_tipo_fijo": por_tipo_fijo,  # Solo fijos
             "por_categoria": by_cat,
         }
     

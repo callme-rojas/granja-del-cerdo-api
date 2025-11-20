@@ -39,7 +39,8 @@ def prepare_features_target(df: pd.DataFrame) -> tuple:
         "duracion_estadia_dias",
         "mes_adquisicion",
         "costo_total_lote",  # Feature Engineering CTL
-        "peso_salida"  # Para normalización
+        "peso_salida",  # Para normalización
+        "costo_fijo_por_kg"  # NUEVO: Costos Fijos como feature
     ]
     
     # Verificar que todas las features existen

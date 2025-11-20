@@ -9,11 +9,16 @@ import asyncio
 bp = Blueprint("costos_v1", __name__)
 
 def parse_iso(dt: str) -> datetime:
+    """
+    Parsea una fecha ISO y la devuelve con hora 00:00:00 (solo fecha).
+    """
     s = dt.strip().removesuffix("Z")
     try:
-        return datetime.fromisoformat(s)
+        fecha = datetime.fromisoformat(s)
     except Exception:
-        return datetime.strptime(s, "%Y-%m-%d")
+        fecha = datetime.strptime(s, "%Y-%m-%d")
+    # Asegurar que la hora sea 00:00:00 (solo fecha)
+    return fecha.replace(hour=0, minute=0, second=0, microsecond=0)
 
 async def ensure_lote_exists(id_lote: int) -> bool:
     return await db.lote.find_unique(where={"id_lote": id_lote}) is not None

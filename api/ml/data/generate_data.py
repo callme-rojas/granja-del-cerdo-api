@@ -14,7 +14,7 @@ rng = np.random.default_rng(SEED)
 # Distribuciones y rangos realistas para reventa (1–3 días)
 RANGO_ANIMALES = (10, 120)              # cantidad por lote
 RANGO_PESO_ENTRADA = (80.0, 115.0)      # kg por animal al comprar
-RANGO_PRECIO_COMPRA = (16.0, 20.0)      # Bs/kg
+RANGO_PRECIO_COMPRA = (18.0, 25.0)  # Ampliado para mayor variabilidad de escenarios      # Bs/kg
 RANGO_DIAS = (1, 3)                      # 1 a 3 días máximo
 MESES = np.arange(1, 13)
 
@@ -33,12 +33,16 @@ def generar_lote(n_rows: int) -> pd.DataFrame:
     # Mes (estacionalidad) – 1..12
     mes_adquisicion = rng.choice(MESES, size=n_rows, replace=True, p=None)
 
-    # Kilos de entrada / salida (apequeña merma o leve ganancia por hidratación)
-    # Para reventa tan corta, la variación es mínima: [-0.5%, +0.5%]
-    factor_variacion = rng.normal(loc=0.0, scale=0.003, size=n_rows)  # ~0.3% std
+    # Kilos de entrada / salida
+    # IMPORTANTE: Los cerdos ganan entre 0.8 y 1.5 kg por día durante la estadía
     kilos_entrada = cantidad_animales * peso_promedio_entrada
-    kilos_salida = kilos_entrada * (1.0 + factor_variacion)
-    kilos_salida = np.maximum(kilos_salida, 1.0)
+    
+    # Calcular ganancia de peso basada en días de estadía
+    # Ganancia promedio: 1.15 kg/día/cerdo (rango: 0.8-1.5 kg/día)
+    ganancia_por_dia = rng.uniform(0.8, 1.5, size=n_rows)  # Variación realista
+    ganancia_total = ganancia_por_dia * cantidad_animales * duracion_estadia_dias
+    kilos_salida = kilos_entrada + ganancia_total
+    kilos_salida = np.maximum(kilos_salida, kilos_entrada * 0.95)  # Mínimo 95% del peso entrada (por mortalidad)
 
     # Costo logístico total ~ base + término variable por animal + ruido
     # Base de 150–350 Bs por lote según distancia/peajes + 10–25 Bs por animal aprox
@@ -66,42 +70,46 @@ def generar_lote(n_rows: int) -> pd.DataFrame:
     )
 
     # ------------------------------
-    # Precio base por kg (target para el modelo ML)
+    # Precio de venta por kg - LÓGICA REALISTA
     # ------------------------------
-    # El modelo predice precio_base_kg, el backend añade costos fijos + margen
-
-    # Construimos un "precio base" a partir de precio_compra_kg + márgenes + efectos:
-    # - Margen bruto base: 1.2–2.8 Bs/kg (sin costos fijos)
-    # - Estacionalidad por mes: +[0..1.0] Bs/kg en meses altos, -[0..0.6] en meses bajos
-    # - Penalización leve por logística/kg si es muy alta
-    # - Ruido de mercado
-
-    margen_bruto = rng.uniform(1.2, 2.8, size=n_rows)  # Reducido (sin costos fijos)
-
-    # Estacionalidad por mes (ejemplo simple):
-    # Meses altos: dic(12), ene(1) → +[0.3..1.0]
-    # Meses bajos: abr(4), may(5)   → -[0.2..0.6]
-    estacionalidad = np.zeros(n_rows)
-    altos = (mes_adquisicion == 12) | (mes_adquisicion == 1)
-    bajos = (mes_adquisicion == 4) | (mes_adquisicion == 5)
-    estacionalidad = np.where(altos, rng.uniform(0.3, 1.0, size=n_rows), estacionalidad)
-    estacionalidad = np.where(bajos, -rng.uniform(0.2, 0.6, size=n_rows), estacionalidad)
-
-    # Penalización por logística por kg (si logística es muy alta para el lote)
-    logistica_por_kg = costo_logistica_total / kilos_salida
-    penal_logistica = np.clip(logistica_por_kg - 0.25, 0.0, 1.0) * rng.uniform(0.15, 0.4, size=n_rows)
-
-    ruido = rng.normal(0.0, 0.25, size=n_rows)  # ruido de mercado reducido
-
-    precio_base_kg = precio_compra_kg + margen_bruto + estacionalidad - penal_logistica + ruido
-
-    # Acotar a banda razonable 17–22 (precio base, sin costos fijos)
-    precio_base_kg = np.clip(precio_base_kg, 17.0, 22.0)
-
-    # Ligeros outliers (1%) para robustez
-    mask_out = rng.random(size=n_rows) < 0.01
-    precio_base_kg[mask_out] += rng.uniform(-0.6, 0.8, size=mask_out.sum())
-    precio_base_kg = np.clip(precio_base_kg, 16.5, 22.5)
+    # IMPORTANTE: El precio de venta SIEMPRE debe ser mayor al precio de compra
+    # Fórmula: Precio Venta = Precio Compra + Costos Adicionales/kg + Margen
+    
+    # 1. Calcular costos adicionales por kg (logística + alimentación, sin compra)
+    costo_adicional_por_kg = (costo_logistica_total + costo_alimentacion) / kilos_salida
+    
+    # 2. Calcular costos fijos por kg
+    costo_fijo_por_kg_calc = costo_fijo_total / kilos_salida
+    
+    # 3. Margen de ganancia sobre el precio de compra: 5-15%
+    # En temporada alta (dic, ene) el margen puede ser mayor (10-20%)
+    # En temporada baja (may, jun) el margen es menor (3-10%)
+    margen_porcentaje = np.zeros(n_rows)
+    for i in range(n_rows):
+        mes = mes_adquisicion[i]
+        if mes in [12, 1]:  # Diciembre, Enero (alta demanda)
+            margen_porcentaje[i] = rng.uniform(0.10, 0.20)  # 10-20%
+        elif mes in [5, 6]:  # Mayo, Junio (baja demanda)
+            margen_porcentaje[i] = rng.uniform(0.03, 0.10)  # 3-10%
+        else:
+            margen_porcentaje[i] = rng.uniform(0.05, 0.15)  # 5-15%
+    
+    # 4. Calcular precio de venta
+    # precio_venta = (precio_compra + costos_adicionales + costos_fijos) × (1 + margen)
+    precio_base_con_costos = precio_compra_kg + costo_adicional_por_kg + costo_fijo_por_kg_calc
+    precio_venta_final_kg = precio_base_con_costos * (1.0 + margen_porcentaje)
+    
+    # 5. Agregar ruido de mercado pequeño (±0.2 Bs/kg)
+    ruido = rng.normal(0.0, 0.2, size=n_rows)
+    precio_venta_final_kg = precio_venta_final_kg + ruido
+    
+    # 6. Asegurar que el precio de venta SIEMPRE sea mayor al precio de compra
+    # Mínimo: precio_compra + 1.0 Bs/kg (margen mínimo razonable)
+    precio_venta_final_kg = np.maximum(precio_venta_final_kg, precio_compra_kg + 1.0)
+    
+    # 7. Acotar a banda razonable (considerando el nuevo rango de precios 18-25)
+    # El precio de venta puede llegar hasta 32 Bs/kg en casos extremos
+    precio_venta_final_kg = np.clip(precio_venta_final_kg, 19.0, 32.0)
 
     # DataFrame final
     df = pd.DataFrame({
@@ -115,20 +123,14 @@ def generar_lote(n_rows: int) -> pd.DataFrame:
         "kilos_salida": np.round(kilos_salida, 3),
         "costo_logistica_total": np.round(costo_logistica_total, 2),
         "costo_alimentacion": np.round(costo_alimentacion, 2),
-        "costo_fijo_total": np.round(costo_fijo_total, 2),  # Nivel III (backend)
+        "costo_fijo_total": np.round(costo_fijo_total, 2),
         "compra_total": np.round(compra_total, 2),
-        "precio_base_kg": np.round(precio_base_kg, 3),    # TARGET para modelo ML
+        "precio_venta_final_kg": np.round(precio_venta_final_kg, 3),  # TARGET para modelo ML (ya incluye todo)
     })
 
     # costo_variable_total (Nivel I+II) para análisis/evaluación
     df["costo_variable_total"] = np.round(
         df["compra_total"] + df["costo_logistica_total"] + df["costo_alimentacion"], 2
-    )
-
-    # precio_venta_final_kg (para validación manual - precio_base + costos fijos + margen)
-    margen_backend = 0.10  # 10% margen del backend
-    df["precio_venta_final_kg"] = np.round(
-        (df["precio_base_kg"] + df["costo_fijo_total"] / df["kilos_salida"]) * (1 + margen_backend), 3
     )
 
     return df
@@ -138,12 +140,16 @@ def construir_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Devuelve un CSV con las features según el diseño académico.
     Implementa Feature Engineering con CTL (Costo Total por Lote) y normalización.
+    INCLUYE costos fijos como feature (10 features total).
     """
     # FEATURE ENGINEERING: Crear CTL (Costo Total por Lote) según diseño académico
     # CTL concentra el 99.6% de la varianza económica en un solo feature altamente predictivo
     df["costo_total_lote"] = df["compra_total"] + df["costo_logistica_total"] + df["costo_alimentacion"]
     
-    # Features según diseño académico (7 features + CTL)
+    # Calcular costo_fijo_por_kg (Nivel III - Costos Fijos)
+    df["costo_fijo_por_kg"] = (df["costo_fijo_total"] / df["kilos_salida"]).round(4)
+    
+    # Features según diseño académico (10 features: 7 Nivel I+II + 2 adicionales + 1 Nivel III)
     feats = pd.DataFrame({
         "cantidad_animales": df["cantidad_animales"].astype(int),
         "peso_promedio_entrada": df["peso_promedio_entrada"].astype(float),
@@ -154,6 +160,7 @@ def construir_features(df: pd.DataFrame) -> pd.DataFrame:
         "mes_adquisicion": df["mes_adquisicion"].astype(int),
         "costo_total_lote": df["costo_total_lote"].astype(float),  # Feature Engineering CTL
         "peso_salida": df["kilos_salida"].astype(float),  # Para normalización
+        "costo_fijo_por_kg": df["costo_fijo_por_kg"].astype(float),  # NUEVO: Nivel III - Costos Fijos
         "precio_venta_final_kg": df["precio_venta_final_kg"].astype(float),  # TARGET según diseño académico
     })
     return feats

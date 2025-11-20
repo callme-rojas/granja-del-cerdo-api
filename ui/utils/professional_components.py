@@ -625,7 +625,7 @@ def progress_circle(
                     style="transition: stroke-dasharray 0.5s ease;"/>
             <text x="60" y="60" text-anchor="middle" dy="7" 
                   style="font-size: 24px; font-weight: 700; fill: #1F2937;">
-                {percentage:.1f}%
+                {percentage:.2f}%
             </text>
         </svg>
         {f'<div style="margin-top: 0.5rem; font-size: 0.875rem; color: #6B7280;">{label}</div>' if label else ''}

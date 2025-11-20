@@ -62,10 +62,10 @@ with st.expander("ℹ️ Información del Modelo de Machine Learning", expanded=
             </h4>
             <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
                 <strong>Algoritmo:</strong> LinearRegression<br>
-                <strong>Precisión (MAE):</strong> 0.435 Bs/kg<br>
-                <strong>R² Score:</strong> 0.934<br>
-                <strong>Features:</strong> 9 variables predictoras<br>
-                <strong>Dataset:</strong> 12 meses de datos sintéticos
+                <strong>Precisión (MAE):</strong> 0.498 ± 0.029 Bs/kg<br>
+                <strong>R² Score:</strong> 0.752<br>
+                <strong>Features:</strong> 10 variables predictoras<br>
+                <strong>Dataset:</strong> 360 lotes de 12 meses
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -85,10 +85,10 @@ with st.expander("ℹ️ Información del Modelo de Machine Learning", expanded=
                 <span>Proceso de Predicción</span>
             </h4>
             <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-                <strong>1.</strong> Análisis de características del lote<br>
-                <strong>2.</strong> Cálculo del precio base usando ML<br>
-                <strong>3.</strong> Suma de costos fijos por kilogramo<br>
-                <strong>4.</strong> Aplicación de margen de ganancia<br>
+                <strong>1.</strong> Análisis de 10 características del lote<br>
+                <strong>2.</strong> Inclusión de costos variables y fijos<br>
+                <strong>3.</strong> Predicción directa del precio con ML<br>
+                <strong>4.</strong> Consideración de estacionalidad y mercado<br>
                 <strong>5.</strong> Generación del precio final sugerido
             </div>
         </div>
@@ -97,47 +97,85 @@ with st.expander("ℹ️ Información del Modelo de Machine Learning", expanded=
 st.markdown("### Selección de Lote")
 st.divider()
 
-# Cargar lotes
-with st.spinner("Cargando lotes disponibles..."):
-    lotes_result = api.get_lotes()
+# Opciones de selección: por lista o por número
+col_sel1, col_sel2 = st.columns([2, 1])
+
+with col_sel1:
+    metodo_seleccion = st.radio(
+        "Método de selección",
+        ["Seleccionar de la lista", "Buscar por número"],
+        horizontal=True,
+        key="metodo_seleccion_lote"
+    )
+
+selected_lote_id = None
+
+if metodo_seleccion == "Seleccionar de la lista":
+    # Cargar lotes (últimos 50)
+    with st.spinner("Cargando lotes disponibles..."):
+        lotes_result = api.get_lotes(limit=50)
+        
+        if not lotes_result["success"]:
+            alert_modern(
+                message=f"Error al cargar lotes: {lotes_result.get('error', 'Error desconocido')}",
+                type="error",
+                title="Error de Conexión"
+            )
+            st.stop()
+        
+        lotes = lotes_result["data"]
+        
+        if not lotes:
+            empty_state_modern(
+                icon="🐷",
+                title="No hay lotes registrados",
+                description="Crea un lote primero en la página de Lotes para poder generar predicciones.",
+                action_label="Ir a Lotes",
+                action_callback=lambda: st.switch_page("pages/3_Lotes.py")
+            )
+            st.stop()
+
+    # Selector de lote mejorado
+    lote_options = {}
+    for l in lotes:
+        fecha = l.get('fecha_adquisicion', 'N/A')
+        if fecha != 'N/A':
+            if isinstance(fecha, str):
+                if 'T' in fecha:
+                    fecha = fecha.split('T')[0]
+                elif ' ' in fecha:
+                    fecha = fecha.split(' ')[0]
+            elif isinstance(fecha, datetime):
+                fecha = fecha.strftime("%Y-%m-%d")
+        
+        label = f"Número: {l['id_lote']} | {l.get('cantidad_animales', 0)} animales | Peso: {l.get('peso_promedio_entrada', 0):.2f} kg | {fecha}"
+        lote_options[label] = l['id_lote']
+
+    selected_lote_str = st.selectbox(
+        "Selecciona un lote para generar predicción (últimos 50 lotes)",
+        options=list(lote_options.keys()),
+        key="predict_lote_selector"
+    )
+
+    selected_lote_id = lote_options[selected_lote_str]
+
+else:
+    # Búsqueda por número de lote
+    with col_sel2:
+        st.markdown("<br>", unsafe_allow_html=True)
     
-    if not lotes_result["success"]:
-        alert_modern(
-            message=f"Error al cargar lotes: {lotes_result.get('error', 'Error desconocido')}",
-            type="error",
-            title="Error de Conexión"
-        )
+    numero_lote = st.number_input(
+        "Ingresa el número de lote",
+        min_value=1,
+        step=1,
+        key="buscar_lote_numero"
+    )
+    
+    if numero_lote:
+        selected_lote_id = numero_lote
+    else:
+        st.info("Ingresa un número de lote para continuar")
         st.stop()
-    
-    lotes = lotes_result["data"]
-    
-    if not lotes:
-        empty_state_modern(
-            icon="🐷",
-            title="No hay lotes registrados",
-            description="Crea un lote primero en la página de Lotes para poder generar predicciones.",
-            action_label="Ir a Lotes",
-            action_callback=lambda: st.switch_page("pages/3_Lotes.py")
-        )
-        st.stop()
-
-# Selector de lote mejorado
-lote_options = {}
-for l in lotes:
-    fecha = l.get('fecha_adquisicion', 'N/A')
-    if fecha != 'N/A' and 'T' in fecha:
-        fecha = fecha.split('T')[0]
-    
-    label = f"Número: {l['id_lote']} | {l.get('cantidad_animales', 0)} animales | Peso: {l.get('peso_promedio_entrada', 0):.1f} kg | {fecha}"
-    lote_options[label] = l['id_lote']
-
-selected_lote_str = st.selectbox(
-    "Selecciona un lote para generar predicción",
-    options=list(lote_options.keys()),
-    key="predict_lote_selector"
-)
-
-selected_lote_id = lote_options[selected_lote_str]
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("### Información del Lote")
@@ -194,16 +232,21 @@ st.markdown("### Análisis de Costos")
 st.divider()
 
 # Análisis de costos (responsive)
-costo_variable_total = extras.get("costo_variable_total", 0)
+# IMPORTANTE: costo_variable_total incluye la compra de animales
+# Para mostrar solo costos variables de BD, restamos la compra
+total_adquisicion = extras.get("total_adquisicion", 0)
+costo_variable_total_con_compra = extras.get("costo_variable_total", 0)
+costo_variable_solo_bd = costo_variable_total_con_compra - total_adquisicion  # Solo costos variables de BD
+
 detalle_text_var = ""
-if detalle.get("por_categoria") and detalle["por_categoria"].get("VARIABLE", 0) > 0:
+por_tipo_variable = detalle.get("por_tipo_variable", {})
+if por_tipo_variable:
     detalle_text_var = "<strong>Detalle:</strong><br>"
-    por_tipo = detalle.get("por_tipo", {})
-    for tipo, monto in por_tipo.items():
+    for tipo, monto in por_tipo_variable.items():
         if monto > 0:
             detalle_text_var += f"• {tipo}: Bs. {monto:,.2f}<br>"
 else:
-    detalle_text_var = "Sin costos registrados"
+    detalle_text_var = "Sin costos variables registrados"
 
 card_variables = f"""
 <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
@@ -212,7 +255,8 @@ card_variables = f"""
         <span>Costos Variables</span>
     </h4>
     <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-        <strong>Total:</strong> Bs. {costo_variable_total:,.2f}<br><br>
+        <strong>Total:</strong> Bs. {costo_variable_solo_bd:,.2f}<br>
+        <small style="color: #9CA3AF;">(Solo costos variables de BD, sin incluir compra de animales)</small><br><br>
         {detalle_text_var}
     </div>
 </div>
@@ -220,14 +264,14 @@ card_variables = f"""
 
 costo_fijo_total = extras.get("costo_fijo_total", 0)
 detalle_text_fijo = ""
-if detalle.get("por_categoria") and detalle["por_categoria"].get("FIJO", 0) > 0:
+por_tipo_fijo = detalle.get("por_tipo_fijo", {})
+if por_tipo_fijo:
     detalle_text_fijo = "<strong>Detalle:</strong><br>"
-    por_tipo = detalle.get("por_tipo", {})
-    for tipo, monto in por_tipo.items():
+    for tipo, monto in por_tipo_fijo.items():
         if monto > 0:
             detalle_text_fijo += f"• {tipo}: Bs. {monto:,.2f}<br>"
 else:
-    detalle_text_fijo = "Sin costos registrados"
+    detalle_text_fijo = "Sin costos fijos registrados"
 
 card_fijos = f"""
 <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
@@ -323,20 +367,26 @@ with col_predict2:
                 # Métricas principales de predicción (responsive)
                 st.markdown("### 📊 Resultados Principales")
                 
-                precio_base = prediction.get("precio_base_kg", 0)
-                fijo_por_kg = prediction.get("fijo_por_kg", 0)
-                precio_sugerido = prediction.get("precio_sugerido_kg", 0)
-                subtotal = precio_base + fijo_por_kg
-                margen_aplicado = ((precio_sugerido - subtotal) / subtotal * 100) if subtotal > 0 else margen_rate
-                margen_formato = f"{margen_aplicado:.0f}%" if margen_aplicado % 1 == 0 else f"{margen_aplicado:.1f}%"
+                precio_compra = prediction.get("precio_compra_kg", 0)  # Precio de compra original
+                precio_sugerido = prediction.get("precio_sugerido_kg", 0)  # Precio final con margen seleccionado
+                precio_base_estimado = prediction.get("precio_base_estimado", 0)  # Precio base sin margen adicional
+                precio_ml_base = prediction.get("precio_ml_base", precio_base_estimado)
+                variable_por_kg = prediction.get("variable_por_kg", 0)  # Costos variables por kg (para info)
+                fijo_por_kg = prediction.get("fijo_por_kg", 0)  # Costos fijos por kg (para info)
+                margen_rate = prediction.get("margen_rate", 0.10)
+                margen_valor_kg = prediction.get("margen_valor_kg", precio_base_estimado * margen_rate)
+                subtotal = precio_base_estimado  # El precio base ya incluye costos (sin margen adicional)
+                margen_aplicado = margen_rate * 100
+                margen_formato = f"{margen_aplicado:.0f}%" if margen_aplicado % 1 == 0 else f"{margen_aplicado:.2f}%"
                 ganancia_neta = prediction.get("ganancia_neta_estimada", 0)
 
                 stats_card_responsive([
-                    {"label": "Precio Base ML", "value": f"{precio_base:.4f}", "icon": "🤖", "color": "primary"},
-                    {"label": "Fijo por kg", "value": f"{fijo_por_kg:.4f}", "icon": "📊", "color": "warning"},
-                    {"label": "Precio Sugerido", "value": f"{precio_sugerido:.4f}", "icon": "💰", "color": "success", "delta": f"+{margen_formato}", "delta_color": "positive"},
-                    {"label": "Ganancia Neta", "value": f"{ganancia_neta:,.2f}", "icon": "💵", "color": "info"},
-                ], min_col_width_px=260, gap="1rem")
+                    {"label": "Precio Compra", "value": f"{precio_compra:.2f}", "icon": "🛒", "color": "info"},
+                    {"label": "Variables por kg", "value": f"{variable_por_kg:.2f}", "icon": "📈", "color": "warning"},
+                    {"label": "Fijos por kg", "value": f"{fijo_por_kg:.2f}", "icon": "🏢", "color": "info"},
+                    {"label": "Precio Sugerido (ML)", "value": f"{precio_sugerido:.2f}", "icon": "🤖", "color": "primary", "delta": "Predicción ML", "delta_color": "positive"},
+                    {"label": "Ganancia Neta", "value": f"{ganancia_neta:,.2f}", "icon": "💵", "color": "success"},
+                ], min_col_width_px=220, gap="1rem")
                 
                 st.markdown("### Desglose Detallado")
                 st.divider()
@@ -346,21 +396,23 @@ with col_predict2:
                 
                 desglose_data = {
                     "Concepto": [
-                        "Precio Base (ML)",
+                        "Precio Compra",
+                        "Costos Variables por kg",
                         "Costos Fijos por kg",
-                        "Subtotal",
-                        f"Margen ({margen_rate}%)",
-                        "Precio Sugerido Final"
+                        "Precio Base Estimado",
+                        f"Margen ({margen_rate*100:.0f}%)",
+                        "Precio Sugerido (ML)"
                     ],
                     "Valor (Bs/kg)": [
-                        f"{precio_base:.4f}",
-                        f"{fijo_por_kg:.4f}",
-                        f"{precio_base + fijo_por_kg:.4f}",
-                        f"{(precio_base + fijo_por_kg) * margen_decimal:.4f}",
-                        f"{precio_sugerido:.4f}"
+                        f"{precio_compra:.2f}",
+                        f"{variable_por_kg:.2f}",
+                        f"{fijo_por_kg:.2f}",
+                        f"{precio_base_estimado:.2f}",
+                        f"{margen_valor_kg:.2f}",
+                        f"{precio_sugerido:.2f}"
                     ],
-                    "Estado": [
-                        "✓", "✓", "✓", "✓", "✓"
+                    "Nota": [
+                        "Input", "Feature ML", "Feature ML", "Estimado", "Estimado", "🤖 Predicción ML"
                     ]
                 }
                 
@@ -389,7 +441,8 @@ with col_predict2:
 
                 peso_salida = extras.get("peso_salida_total", 0)
                 ingreso_total = precio_sugerido * peso_salida if peso_salida > 0 else 0
-                costo_total = costo_variable_total + costo_fijo_total
+                # costo_total debe incluir compra + costos variables BD + costos fijos
+                costo_total = costo_variable_total_con_compra + costo_fijo_total
                 roi = (ganancia_neta / costo_total * 100) if costo_total > 0 else 0
 
                 card_proj = f"""
@@ -414,11 +467,12 @@ with col_predict2:
                 st.markdown("### 📈 Visualización Comparativa")
                 
                 df_comparacion = pd.DataFrame({
-                    'Componente': ['Precio Base', 'Costos Fijos/kg', 'Margen', 'Precio Final'],
+                    'Componente': ['Precio Compra', 'Variables/kg', 'Fijos/kg', 'Margen', 'Precio Final'],
                     'Valor': [
-                        precio_base,
+                        precio_compra,
+                        variable_por_kg,
                         fijo_por_kg,
-                        (precio_base + fijo_por_kg) * margen_decimal,
+                        margen_valor_kg,
                         precio_sugerido
                     ]
                 })

@@ -47,41 +47,58 @@ def predict_lote(body: PredictBody):
         f = bundle["features"]
         extras = bundle["extras"]
 
-        # Vector de entrada con 9 features (alineado con entrenamiento)
+        # Vector de entrada con 10 features (incluyendo costos fijos)
+        # IMPORTANTE: El modelo debe recibir costos fijos para predecir el precio correctamente
+        kilos_salida = float(extras.get("peso_salida_total", 0.0))
+        costo_fijo_total = float(extras.get("costo_fijo_total", 0.0))
+        costo_fijo_por_kg = (costo_fijo_total / kilos_salida) if kilos_salida > 0 else 0.0
+        
         X = [[
             f["cantidad_animales"],           # Nivel I
             f["peso_promedio_entrada"],       # Nivel I
             f["precio_compra_kg"],            # Nivel I
-            f["costo_logistica_total"],       # Nivel II
-            f["costo_alimentacion_estadia"],  # Nivel II
+            f["costo_logistica_total"],       # Nivel II - Costo Variable
+            f["costo_alimentacion_estadia"],  # Nivel II - Costo Variable
             f["duracion_estadia_dias"],       # Nivel II
             f["mes_adquisicion"],             # Nivel II
-            f["costo_total_lote"],            # Feature engineering (CTL)
+            f["costo_total_lote"],            # Feature engineering (CTL) - Costos Variables
             f["peso_salida"],                 # Feature adicional
+            costo_fijo_por_kg,                # Nivel III - Costos Fijos (NUEVO)
         ]]
 
-        model, scaler = load_model()
+        # Cálculo de costos para información adicional
+        costo_variable_total = float(extras.get("costo_variable_total", 0.0))  # Incluye compra + costos variables BD
+        total_adquisicion = float(extras.get("total_adquisicion", 0.0))  # Solo compra de animales
+        costo_variable_solo_bd = costo_variable_total - total_adquisicion  # Solo costos variables de BD (sin compra)
+        precio_compra_kg = float(f["precio_compra_kg"])
         
-        # Aplicar scaler si está disponible
+        # Calcular costos por kg para información/desglose
+        # IMPORTANTE: variable_por_kg debe ser solo los costos variables de BD (sin compra)
+        # porque el precio de compra se muestra por separado
+        variable_por_kg = (costo_variable_solo_bd / kilos_salida) if kilos_salida > 0 else 0.0
+        
+        # CARGAR Y USAR EL MODELO ML
+        # El modelo predice directamente el precio_venta_final_kg considerando:
+        # - Costos variables (logística, alimentación, compra)
+        # - Costos fijos (por kg)
+        # - Estacionalidad, cantidad, peso, etc.
+        model, scaler = load_model()
         if scaler is not None:
             X_scaled = scaler.transform(X)
         else:
             X_scaled = X
-            
-        precio_base_kg = float(model.predict(X_scaled)[0])
-
-        # Negocio: sumar fijos por kg + margen
-        kilos_salida = float(extras.get("peso_salida_total", 0.0))  # Obtener desde extras
-        costo_fijo_total = float(extras.get("costo_fijo_total", 0.0))
-        costo_variable_total = float(extras.get("costo_variable_total", 0.0))
-
-        fijo_por_kg = (costo_fijo_total / kilos_salida) if kilos_salida else 0.0
         
-        # Usar margen dinámico si se proporciona, sino usar el por defecto
+        # PREDICCIÓN DIRECTA SIN MARGEN ADICIONAL: El modelo ML predice el precio base por kg
+        precio_ml_base = float(model.predict(X_scaled)[0])
+        
         margen_rate = float(body.margen_rate) if body.margen_rate is not None else float(settings.DEFAULT_MARGIN_RATE)
-
-        subtotal = precio_base_kg + fijo_por_kg
-        precio_sugerido_kg = subtotal * (1.0 + margen_rate)
+        
+        # Aplicar margen seleccionado por el usuario al precio base
+        precio_sugerido_kg = precio_ml_base * (1.0 + margen_rate)
+        margen_valor_kg = precio_ml_base * margen_rate
+        
+        # Para desglose y transparencia
+        precio_base_estimado = precio_ml_base
 
         # RF-02: Ganancia neta estimada
         ingreso_total = precio_sugerido_kg * kilos_salida
@@ -105,12 +122,20 @@ def predict_lote(body: PredictBody):
         await db.disconnect()
         return {
             "lote_id": body.id_lote,
-            "precio_base_kg": round(precio_base_kg, 4),
-            "fijo_por_kg": round(fijo_por_kg, 4),
-            "margen_rate": margen_rate,
-            "precio_sugerido_kg": round(precio_sugerido_kg, 4),
+            "precio_compra_kg": round(precio_compra_kg, 4),  # Precio de compra original
+            "precio_ml_base": round(precio_ml_base, 4),  # Precio base predicho por el modelo (sin margen extra)
+            "precio_sugerido_kg": round(precio_sugerido_kg, 4),  # Precio final con el margen seleccionado
+            "precio_base_estimado": round(precio_base_estimado, 4),  # Base para desglose (sin margen)
+            "variable_por_kg": round(variable_por_kg, 4),  # Costos variables por kg (para info)
+            "fijo_por_kg": round(costo_fijo_por_kg, 4),  # Costos fijos por kg (para info)
+            "margen_rate": margen_rate,  # Margen usado en estimación
+            "margen_valor_kg": round(margen_valor_kg, 4),
             "ganancia_neta_estimada": round(ganancia_neta_estimada, 2),
             "prediccion_id": pred.id_prediccion,
+            # Información adicional para defensa académica
+            "costo_variable_total": round(costo_variable_total, 2),
+            "costo_fijo_total": round(costo_fijo_total, 2),
+            "explicacion": "El modelo ML predice directamente el precio_venta_final_kg considerando costos variables y fijos como features. El precio sugerido es la predicción directa del modelo."
         }
 
     try:

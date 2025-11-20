@@ -106,10 +106,16 @@ class APIClient:
         st.session_state["authenticated"] = False
     
     # Lotes
-    def get_lotes(self) -> Dict[str, Any]:
-        """Obtiene todos los lotes"""
+    def get_lotes(self, limit: int = 50) -> Dict[str, Any]:
+        """Obtiene lotes con límite por defecto para evitar timeouts"""
         try:
-            response = requests.get(LOTES_ENDPOINT, headers=self._get_headers())
+            params = {"limit": limit} if limit else {}
+            response = requests.get(
+                LOTES_ENDPOINT, 
+                headers=self._get_headers(),
+                params=params,
+                timeout=30  # Timeout de 30 segundos
+            )
             return self._handle_response(response)
         except Exception as e:
             return {"success": False, "error": f"Error de conexión: {str(e)}"}

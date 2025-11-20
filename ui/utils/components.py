@@ -290,26 +290,38 @@ def section_header(title: str, description: Optional[str] = None):
 
 def formatted_date(date_str: str) -> str:
     """
-    Formatea una fecha ISO a formato legible
+    Formatea una fecha ISO a formato legible (solo fecha, sin hora)
     
     Args:
-        date_str: Fecha en formato ISO
+        date_str: Fecha en formato ISO o datetime
     
     Returns:
-        Fecha formateada
+        Fecha formateada en formato DD/MM/YYYY
     """
     if not date_str or date_str == "N/A":
         return "N/A"
     
     try:
-        # Intentar parsear fecha ISO
-        if "T" in date_str:
-            date_str = date_str.split("T")[0]
+        # Si es un objeto datetime, convertir directamente
+        if isinstance(date_str, datetime):
+            return date_str.strftime("%d/%m/%Y")
         
-        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-        return date_obj.strftime("%d/%m/%Y")
-    except:
-        return date_str
+        # Si es string, intentar parsear
+        if isinstance(date_str, str):
+            # Remover hora si existe
+            if "T" in date_str:
+                date_str = date_str.split("T")[0]
+            # Remover hora si está en formato "YYYY-MM-DD HH:MM:SS"
+            if " " in date_str:
+                date_str = date_str.split(" ")[0]
+            
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            return date_obj.strftime("%d/%m/%Y")
+        
+        return str(date_str)
+    except Exception as e:
+        # Si falla, devolver el string original
+        return str(date_str) if date_str else "N/A"
 
 
 def format_currency(amount: float, currency: str = "Bs.") -> str:

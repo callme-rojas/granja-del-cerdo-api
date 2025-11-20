@@ -22,6 +22,9 @@ import time
 import warnings
 warnings.filterwarnings('ignore')
 
+# Importar módulo de validación cruzada
+from ml.core.cross_validation import cross_validation_evaluation
+
 def generate_12_months_dataset() -> pd.DataFrame:
     """Genera dataset realista para 12 meses de operación."""
     print("Generando dataset de 12 meses de operación...")
@@ -123,7 +126,10 @@ def generate_12_months_dataset() -> pd.DataFrame:
         (df["precio_base_kg"] + df["costo_fijo_total"] / df["kilos_salida"]) * (1 + margen_backend)
     ).round(3)
     
-    # Features para modelo
+    # Features para modelo - INCLUYENDO COSTOS FIJOS
+    # IMPORTANTE: El modelo debe recibir costos fijos para predecir correctamente el precio
+    df["costo_fijo_por_kg"] = (df["costo_fijo_total"] / df["kilos_salida"]).round(4)
+    
     features_df = pd.DataFrame({
         "cantidad_animales": df["cantidad_animales"].astype(int),
         "peso_promedio_entrada": df["peso_promedio_entrada"].astype(float),
@@ -134,6 +140,7 @@ def generate_12_months_dataset() -> pd.DataFrame:
         "mes_adquisicion": df["mes_adquisicion"].astype(int),
         "costo_total_lote": df["costo_total_lote"].astype(float),
         "peso_salida": df["kilos_salida"].astype(float),
+        "costo_fijo_por_kg": df["costo_fijo_por_kg"].astype(float),  # NUEVO: Costos Fijos como feature
         "precio_venta_final_kg": df["precio_venta_final_kg"].astype(float),
     })
     
@@ -179,28 +186,36 @@ def comprehensive_model_comparison(X: np.ndarray, y: np.ndarray, feature_names: 
     results = {}
     
     for name, model in models.items():
-        print(f"\nEvaluando {name}...")
+        print(f"\n{'='*70}")
+        print(f"EVALUANDO: {name}")
+        print(f"{'='*70}")
         
-        # Entrenar modelo
+        # ========== VALIDACIÓN CRUZADA ==========
+        print(f"\n1. VALIDACIÓN CRUZADA (K-Fold)")
+        cv_metrics = cross_validation_evaluation(
+            model, X_train_scaled, y_train, 
+            cv_folds=5, random_state=42, verbose=True
+        )
+        
+        # ========== EVALUACIÓN EN TEST SET ==========
+        print(f"\n2. EVALUACIÓN EN CONJUNTO DE PRUEBA")
+        # Entrenar modelo con todos los datos de entrenamiento
         start_time = time.time()
         model.fit(X_train_scaled, y_train)
         train_time = time.time() - start_time
         
-        # Predicciones
+        # Predicciones en test
         start_time = time.time()
         y_pred = model.predict(X_test_scaled)
         pred_time = time.time() - start_time
         
-        # Métricas
+        # Métricas en test set
         mae = mean_absolute_error(y_test, y_pred)
         mse = mean_squared_error(y_test, y_pred)
         rmse = np.sqrt(mse)
         r2 = r2_score(y_test, y_pred)
         evs = explained_variance_score(y_test, y_pred)
         mape = np.mean(np.abs((y_test - y_pred) / y_test)) * 100
-        
-        # Validación cruzada (5-fold para dataset pequeño)
-        cv_scores = cross_val_score(model, X_train_scaled, y_train, cv=5, scoring='neg_mean_absolute_error')
         
         # Análisis de errores
         errors = y_test - y_pred
@@ -219,15 +234,27 @@ def comprehensive_model_comparison(X: np.ndarray, y: np.ndarray, feature_names: 
             'pred_time': pred_time,
             'error_std': error_std,
             'max_error': max_error,
-            'cv_mean': -cv_scores.mean(),
-            'cv_std': cv_scores.std(),
-            'y_pred': y_pred
+            'y_pred': y_pred,
+            # Métricas de validación cruzada
+            'cv_mae_mean': cv_metrics['test_mae']['mean'],
+            'cv_mae_std': cv_metrics['test_mae']['std'],
+            'cv_rmse_mean': cv_metrics['test_rmse']['mean'],
+            'cv_rmse_std': cv_metrics['test_rmse']['std'],
+            'cv_metrics': cv_metrics
         }
         
-        print(f"MAE: {mae:.3f} Bs/kg")
-        print(f"RMSE: {rmse:.3f} Bs/kg")
-        print(f"R²: {r2:.3f}")
-        print(f"CV MAE: {-cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
+        print(f"\n📊 RESUMEN DE MÉTRICAS:")
+        print(f"   Test Set - MAE:  {mae:.3f} Bs/kg")
+        print(f"   Test Set - RMSE: {rmse:.3f} Bs/kg")
+        print(f"   CV - MAE:  {cv_metrics['test_mae']['mean']:.3f} ± {cv_metrics['test_mae']['std']:.3f} Bs/kg")
+        print(f"   CV - RMSE: {cv_metrics['test_rmse']['mean']:.3f} ± {cv_metrics['test_rmse']['std']:.3f} Bs/kg")
+        print(f"   R²: {r2:.3f}")
+    
+    # IMPORTANTE: Verificar que el scaler esté fitted
+    if not hasattr(scaler, 'n_features_in_'):
+        print("\n⚠️ WARNING: El scaler no está fitted. Re-fitting con todo el dataset...")
+        scaler.fit(X)
+        print(f"✅ Scaler fitted con {scaler.n_features_in_} features")
     
     return results, scaler, feature_names
 
@@ -258,7 +285,7 @@ def save_final_model(results: dict, scaler: StandardScaler, feature_names: list)
     print(f"\nMEJOR MODELO: {best_name}")
     print(f"MAE: {best_result['mae']:.3f} Bs/kg")
     print(f"R²: {best_result['r2']:.3f}")
-    print(f"CV MAE: {best_result['cv_mean']:.3f} (+/- {best_result['cv_std']:.3f})")
+    print(f"CV MAE: {best_result['cv_mae_mean']:.3f} (+/- {best_result['cv_mae_std']:.3f})")
     
     # Preparar datos para guardar
     model_data = {
@@ -272,8 +299,10 @@ def save_final_model(results: dict, scaler: StandardScaler, feature_names: list)
             'rmse': best_result['rmse'],
             'r2': best_result['r2'],
             'mape': best_result['mape'],
-            'cv_mean': best_result['cv_mean'],
-            'cv_std': best_result['cv_std']
+            'cv_mae_mean': best_result['cv_mae_mean'],
+            'cv_mae_std': best_result['cv_mae_std'],
+            'cv_rmse_mean': best_result['cv_rmse_mean'],
+            'cv_rmse_std': best_result['cv_rmse_std']
         },
         'all_results': results,
         'dataset_info': {
@@ -283,14 +312,33 @@ def save_final_model(results: dict, scaler: StandardScaler, feature_names: list)
         }
     }
     
-    # Guardar modelo
-    model_path = "model_store/12_months_model.pkl"
-    model_dir = Path(model_path).parent
+    # Guardar modelo en la ubicación correcta (ml/models/)
+    # Calcular path absoluto desde la raíz del proyecto (api/)
+    try:
+        # Intentar usar __file__ si está disponible
+        script_dir = Path(__file__).parent.parent.parent  # api/
+    except NameError:
+        # Si __file__ no está disponible, usar el directorio actual y subir 2 niveles
+        script_dir = Path.cwd()
+        # Si estamos en api/ml/core, subir 2 niveles
+        if script_dir.name == "core" and script_dir.parent.name == "ml":
+            script_dir = script_dir.parent.parent  # api/
+        elif script_dir.name == "api":
+            pass  # Ya estamos en api/
+        else:
+            # Buscar api/ en el path
+            for parent in script_dir.parents:
+                if parent.name == "api":
+                    script_dir = parent
+                    break
+    
+    model_path = script_dir / "ml" / "models" / "12_months_model.pkl"
+    model_dir = model_path.parent
     model_dir.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model_data, model_path)
+    joblib.dump(model_data, str(model_path))
     
     print(f"Modelo de 12 meses guardado: {model_path}")
-    return model_path
+    return str(model_path)
 
 def main():
     """Función principal del entrenamiento de 12 meses."""
@@ -303,11 +351,12 @@ def main():
         # 1. Generar dataset de 12 meses
         df = generate_12_months_dataset()
         
-        # 2. Preparar features y target
+        # 2. Preparar features y target - INCLUYENDO COSTOS FIJOS
         feature_cols = [
             "cantidad_animales", "peso_promedio_entrada", "precio_compra_kg",
             "costo_logistica_total", "costo_alimentacion_estadia", "duracion_estadia_dias",
-            "mes_adquisicion", "costo_total_lote", "peso_salida"
+            "mes_adquisicion", "costo_total_lote", "peso_salida",
+            "costo_fijo_por_kg"  # NUEVO: Costos Fijos como feature
         ]
         
         X = df[feature_cols].values
