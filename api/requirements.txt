@@ -10,6 +10,7 @@ psycopg[binary]
 structlog
 pydantic-settings
 passlib[bcrypt]
+bcrypt==4.0.1
 prisma
 pandas  
 numpy
