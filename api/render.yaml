@@ -3,10 +3,17 @@ services:
     name: granja-del-cerdo-api
     env: python
     plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python app.py"
+    region: oregon
+    buildCommand: "pip install -r requirements.txt && prisma generate"
+    startCommand: "gunicorn -w 4 -b 0.0.0.0:$PORT app:app"
     envVars:
       - key: DATABASE_URL
-        value: postgresql://granjadelcerdo_pdb_user:Kuef1xTZUY9SxoggqmFxPDXo2LLkteWF@dpg-d3pa6q1r0fns73afp7h0-a.oregon-postgres.render.com/granjadelcerdo_pdb
+        sync: false  # Configurar manualmente en Render Dashboard
       - key: JWT_SECRET
-        value: "cambia_estosecreto"
+        generateValue: true  # Render genera valor aleatorio seguro
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: API_HOST
+        value: "0.0.0.0"
+      - key: RATE_LIMIT
+        value: "100 per minute"

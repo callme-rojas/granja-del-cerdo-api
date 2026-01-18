@@ -527,8 +527,8 @@ st.markdown('<div class="section-header">Indicadores de Rendimiento</div>', unsa
 col_gauge1, col_gauge2, col_gauge3 = st.columns(3)
 
 with col_gauge1:
-    # Eficiencia de peso
-    eficiencia_peso = (peso_promedio / 30) * 100 if peso_promedio > 0 else 0
+    # Eficiencia de peso (referencia: 90 kg - peso óptimo para cerdos de reventa)
+    eficiencia_peso = (peso_promedio / 90) * 100 if peso_promedio > 0 else 0
     gauge_peso_start = time.perf_counter()
     fig_g1 = kpi_gauge(
         value=min(eficiencia_peso, 100),

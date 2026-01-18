@@ -63,10 +63,10 @@ def generate_12_months_dataset() -> pd.DataFrame:
     variacion_peso = np.random.normal(0, 0.01, n_lotes)  # ±1% variación
     kilos_salida = kilos_entrada * (1 + variacion_peso)
     
-    # Costos logísticos realistas
-    costo_logistica_base = np.random.normal(600, 150, n_lotes)
-    costo_logistica_variable = cantidad_animales * np.random.normal(12, 3, n_lotes)
-    costo_logistica_total = costo_logistica_base + costo_logistica_variable
+    # Costos logísticos realistas - AJUSTADO con rangos más amplios
+    costo_logistica_base = np.random.normal(600, 200, n_lotes)
+    costo_logistica_variable = cantidad_animales * np.random.normal(20, 10, n_lotes)
+    costo_logistica_total = np.maximum(costo_logistica_base + costo_logistica_variable, 100.0)
     
     # Alimentación mínima (1-3 días)
     costo_alimentacion = np.zeros(n_lotes)
@@ -75,9 +75,9 @@ def generate_12_months_dataset() -> pd.DataFrame:
             if np.random.random() > 0.4:  # 60% probabilidad de alimentación
                 costo_alimentacion[i] = cantidad_animales[i] * duracion_estadia_dias[i] * np.random.normal(1.0, 0.2)
     
-    # Costos fijos realistas
-    costo_fijo_total = np.random.normal(400, 100, n_lotes)
-    costo_fijo_total = np.clip(costo_fijo_total, 200, 600)
+    # Costos fijos realistas - AJUSTADO con rangos más amplios
+    costo_fijo_total = np.random.normal(1000, 500, n_lotes)
+    costo_fijo_total = np.clip(costo_fijo_total, 100, 2500)
     
     compra_total = kilos_entrada * precio_compra_kg
     

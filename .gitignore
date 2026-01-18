@@ -79,3 +79,5 @@ api/prisma/migrations/
 # Archivos de documentación generados
 *.docx
 
+# Scripts temporales (no subir a Git)
+scripts/temp/
