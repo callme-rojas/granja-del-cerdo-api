@@ -12,6 +12,7 @@ sys.path.insert(0, str(ui_dir))
 from config import APP_TITLE
 from utils.auth import is_authenticated, login_page
 from utils.styles import inject_custom_css
+from utils.enhanced_styles import inject_enhanced_styles
 
 # Inicializar estado de autenticación
 if "authenticated" not in st.session_state:
@@ -32,6 +33,7 @@ if not is_authenticated():
     )
     
     inject_custom_css()
+    inject_enhanced_styles()  # Estilos mejorados adicionales
     
     # Ocultar sidebar completamente en login
     st.markdown("""
