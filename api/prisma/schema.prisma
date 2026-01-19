@@ -30,8 +30,16 @@ model Lote {
   fecha_adquisicion      DateTime
   cantidad_animales      Int
   peso_promedio_entrada  Float
-  duracion_estadia_dias  Int?      // Cambio: estadía en lugar de ciclo (reventa)
-  precio_compra_kg      Float?    // Nuevo: precio por kg comprado
+  duracion_estadia_dias  Int?      // Estadia en dias (modelo reventa: 1-3 dias)
+  precio_compra_kg       Float?    // Precio por kg comprado
+  
+  // Nuevos campos para XGBoost (variables logisticas)
+  costo_flete            Float?    // Costo directo del transporte
+  costo_combustible      Float?    // Gasto de diesel del viaje
+  costo_peajes_lavado    Float?    // Gastos en ruta y desinfeccion (Feature #6)
+  merma_peso_transporte  Float?    // Kilos perdidos en transporte (Feature #16)
+  ubicacion_origen       String?   // Origen del lote (ej: "Santa Cruz")
+  
   usuario_creador        Usuario?  @relation(fields: [id_usuario_creador], references: [id_usuario])
   id_usuario_creador     Int?
   costos                 Costo[]
@@ -40,11 +48,13 @@ model Lote {
 }
 
 model TipoCosto {
-  id_tipo_costo  Int     @id @default(autoincrement())
-  nombre_tipo    String
-  categoria      CategoriaCosto @default(VARIABLE)
-  costos         Costo[]
+  id_tipo_costo   Int              @id @default(autoincrement())
+  nombre_tipo     String           @unique
+  categoria       CategoriaCosto   @default(VARIABLE)
+  costos          Costo[]
+  gastos_mensuales GastoMensual[]  // Relacion con gastos mensuales
 }
+
 enum CategoriaCosto {
   FIJO
   VARIABLE
@@ -61,6 +71,20 @@ model Costo {
   id_lote        Int
 }
 
+// Modelo para Costos Indirectos Mensuales (prorrateables)
+model GastoMensual {
+  id_gasto_mensual  Int       @id @default(autoincrement())
+  mes               Int       // Mes del gasto (1-12)
+  anio              Int       // Año del gasto
+  monto             Float     // Monto total del gasto mensual
+  descripcion       String?   // Descripcion del gasto (ej: "Luz", "Agua", "Sueldos")
+  tipo_costo        TipoCosto @relation(fields: [id_tipo_costo], references: [id_tipo_costo])
+  id_tipo_costo     Int       // Relacion con tipo de costo
+  fecha_registro    DateTime  @default(now())
+  
+  @@unique([mes, anio, id_tipo_costo]) // Evitar duplicados por mes/año/tipo
+}
+
 model Produccion {
   id_produccion        Int      @id @default(autoincrement())
   peso_salida_total    Float
@@ -73,10 +97,21 @@ model Prediccion {
   id_prediccion           Int      @id @default(autoincrement())
   precio_sugerido_kg      Float
   ganancia_neta_estimada  Float?
-  modelo_usado            String?
+  modelo_usado            String?  // Nombre del modelo (ej: "XGBoost", "LinearRegression")
+  mae_error               Float?   // Error MAE del modelo al momento de la prediccion
   fecha_prediccion        DateTime @default(now())
   usuario_realiza         Usuario? @relation(fields: [id_usuario_realiza], references: [id_usuario])
   id_usuario_realiza      Int?
   lote                    Lote?    @relation(fields: [id_lote], references: [id_lote])
   id_lote                 Int?
+}
+
+// Tabla para manejar estacionalidad (Features #20 y #21)
+model Feriado {
+  id_feriado     Int      @id @default(autoincrement())
+  nombre_feriado String
+  fecha          DateTime
+  descripcion    String?
+  
+  @@index([fecha])  // Indice para busquedas rapidas por fecha
 }
