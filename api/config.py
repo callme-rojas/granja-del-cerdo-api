@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     
     # Machine Learning
     # Ajustado a la nueva estructura: los modelos viven en ml/models/
-    MODEL_PATH: str = "ml/models/12_months_model.pkl"
+    MODEL_PATH: str = "ml/models/xgboost_24_features.pkl"
     DEFAULT_MARGIN_RATE: float = 0.10  # 10% de margen por defecto
 
     class Config:
