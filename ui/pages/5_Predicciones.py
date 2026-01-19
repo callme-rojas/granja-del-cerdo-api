@@ -43,7 +43,7 @@ st.caption("Obtén predicciones precisas de precios usando Machine Learning avan
 api = APIClient()
 
 # Info del modelo ML
-with st.expander("ℹ️ Información del Modelo de Machine Learning", expanded=False):
+with st.expander("ℹ️ Información del Modelo de Machine Learning XGBoost", expanded=False):
     col1, col2 = st.columns(2)
     
     with col1:
@@ -61,11 +61,12 @@ with st.expander("ℹ️ Información del Modelo de Machine Learning", expanded=
                 <span>Especificaciones del Modelo</span>
             </h4>
             <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-                <strong>Algoritmo:</strong> LinearRegression<br>
-                <strong>Precisión (MAE):</strong> 0.498 ± 0.029 Bs/kg<br>
-                <strong>R² Score:</strong> 0.752<br>
-                <strong>Features:</strong> 10 variables predictoras<br>
-                <strong>Dataset:</strong> 360 lotes de 12 meses
+                <strong>Algoritmo:</strong> XGBoost (Extreme Gradient Boosting)<br>
+                <strong>Precisión (MAE):</strong> 0.59 ± 0.02 Bs/kg<br>
+                <strong>R² Score:</strong> 0.91 (91% varianza explicada)<br>
+                <strong>Features:</strong> 24 variables predictoras<br>
+                <strong>Dataset:</strong> 2000 lotes sintéticos<br>
+                <strong>Versión:</strong> v1.0
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -85,14 +86,15 @@ with st.expander("ℹ️ Información del Modelo de Machine Learning", expanded=
                 <span>Proceso de Predicción</span>
             </h4>
             <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-                <strong>1.</strong> Análisis de 10 características del lote<br>
-                <strong>2.</strong> Inclusión de costos variables y fijos<br>
-                <strong>3.</strong> Predicción directa del precio con ML<br>
-                <strong>4.</strong> Consideración de estacionalidad y mercado<br>
-                <strong>5.</strong> Generación del precio final sugerido
+                <strong>1.</strong> Análisis de 24 características del lote<br>
+                <strong>2.</strong> Consulta de feriados próximos (estacionalidad)<br>
+                <strong>3.</strong> Prorrateo dinámico de costos indirectos<br>
+                <strong>4.</strong> Cálculo de variables compuestas<br>
+                <strong>5.</strong> Predicción con XGBoost entrenado
             </div>
         </div>
         """, unsafe_allow_html=True)
+
 
 st.markdown("### Selección de Lote")
 st.divider()
@@ -420,47 +422,69 @@ with col_predict2:
                 st.dataframe(df_desglose, use_container_width=True, hide_index=True)
                 
                 # Información adicional
-                st.markdown("### Información Adicional")
+                st.markdown("### 📊 Información del Modelo y Análisis Avanzado")
                 st.divider()
                 
+                # Obtener información del modelo desde la respuesta
+                modelo_info = prediction.get("modelo", {})
+                desglose_indirectos = prediction.get("desglose_costos_indirectos", {})
+                estacionalidad = prediction.get("estacionalidad", {})
+                
                 # Cards de información adicional (responsive)
-                card_pred = f"""
+                card_modelo = f"""
                 <div style="background: linear-gradient(135deg, rgba(255, 145, 164, 0.1) 0%, rgba(255, 127, 149, 0.1) 100%); border: 1px solid rgba(255, 145, 164, 0.3); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
                     <h4 style="color: #FF91A4; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-size: 1.5rem;">🔍</span>
-                        <span>Datos de la Predicción</span>
+                        <span style="font-size: 1.5rem;">🤖</span>
+                        <span>Información del Modelo</span>
                     </h4>
                     <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-                        <strong>Número de Predicción:</strong> {prediction.get('prediccion_id', 'N/A')}<br>
-                        <strong>Número del Lote:</strong> {prediction.get('lote_id', 'N/A')}<br>
-                        <strong>Modelo:</strong> LinearRegression<br>
-                        <strong>Precisión:</strong> 93.4% (R²)
+                        <strong>Modelo:</strong> {modelo_info.get('nombre', 'XGBoost v1.0')}<br>
+                        <strong>MAE (Error Promedio):</strong> {modelo_info.get('mae', 0):.4f} Bs/kg<br>
+                        <strong>R² (Precisión):</strong> {modelo_info.get('r2', 0):.4f} ({modelo_info.get('r2', 0)*100:.1f}%)<br>
+                        <strong>Features Utilizadas:</strong> {modelo_info.get('n_features', 24)}<br>
+                        <small style="color: #9CA3AF;">El modelo se equivoca en promedio por {modelo_info.get('mae', 0):.2f} Bs/kg</small>
                     </div>
                 </div>
                 """
-
-                peso_salida = extras.get("peso_salida_total", 0)
-                ingreso_total = precio_sugerido * peso_salida if peso_salida > 0 else 0
-                # costo_total debe incluir compra + costos variables BD + costos fijos
-                costo_total = costo_variable_total_con_compra + costo_fijo_total
-                roi = (ganancia_neta / costo_total * 100) if costo_total > 0 else 0
-
-                card_proj = f"""
+                
+                # Card de desglose de costos indirectos
+                card_indirectos = f"""
+                <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
+                    <h4 style="color: #60A5FA; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">💡</span>
+                        <span>Desglose de Costos Indirectos</span>
+                    </h4>
+                    <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
+                        <strong>Energía y Agua (Prorrateado):</strong> Bs. {desglose_indirectos.get('tasa_consumo_energia_agua', 0):.2f}<br>
+                        <strong>Mano de Obra (Prorrateado):</strong> Bs. {desglose_indirectos.get('costo_mano_obra_asignada', 0):.2f}<br>
+                        <strong>Costo Fijo Diario:</strong> Bs. {desglose_indirectos.get('costo_fijo_diario_lote', 0):.2f}<br>
+                        <strong>Factor de Ocupación:</strong> {desglose_indirectos.get('factor_ocupacion_granja', 0):.2%}<br>
+                        <small style="color: #9CA3AF;">Costos prorrateados según animales vendidos en el mes</small>
+                    </div>
+                </div>
+                """
+                
+                # Card de estacionalidad
+                mensaje_estacionalidad = estacionalidad.get('mensaje', 'Sin festividades próximas')
+                color_estacionalidad = "#10B981" if estacionalidad.get('es_feriado_proximo') else "#6B7280"
+                icon_estacionalidad = "🎉" if estacionalidad.get('es_feriado_proximo') else "📅"
+                
+                card_estacionalidad = f"""
                 <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
-                    <h4 style="color: #10B981; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-size: 1.5rem;">💰</span>
-                        <span>Proyección Financiera</span>
+                    <h4 style="color: {color_estacionalidad}; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.5rem;">{icon_estacionalidad}</span>
+                        <span>Análisis de Estacionalidad</span>
                     </h4>
                     <div style="color: #E5E7EB; margin-top: 1rem; line-height: 1.7;">
-                        <strong>Peso Salida Total:</strong> {peso_salida:.2f} kg<br>
-                        <strong>Ingreso Total Estimado:</strong> Bs. {ingreso_total:,.2f}<br>
-                        <strong>Costo Total:</strong> Bs. {costo_total:,.2f}<br>
-                        <strong>ROI:</strong> {roi:.2f}%
+                        <strong>Mes de Adquisición:</strong> {estacionalidad.get('mes_adquisicion', 'N/A')}<br>
+                        <strong>Feriado Próximo:</strong> {'Sí' if estacionalidad.get('es_feriado_proximo') else 'No'}<br>
+                        <strong>Días para Festividad:</strong> {estacionalidad.get('dias_para_festividad', 999)}<br><br>
+                        <strong style="color: {color_estacionalidad};">{mensaje_estacionalidad}</strong>
                     </div>
                 </div>
                 """
 
-                responsive_grid([card_pred, card_proj], min_col_width_px=320, gap="1rem")
+                responsive_grid([card_modelo, card_indirectos, card_estacionalidad], min_col_width_px=300, gap="1rem")
                 
                 # Gráfico de comparación
                 st.markdown("<br>", unsafe_allow_html=True)
